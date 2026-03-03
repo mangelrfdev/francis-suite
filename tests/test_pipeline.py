@@ -45,3 +45,24 @@ def test_unknown_tag_fails_session():
 
     assert session.status == SessionStatus.FAILED
     assert session.error is not None
+
+def test_box_def_stores_variable():
+    """box-def should execute children and store result in context."""
+    xml = """
+    <francis-workflow>
+        <box-def var="mensaje">
+            <log>guardando esto</log>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-box-def")
+
+    assert session.status == SessionStatus.COMPLETED
+    variable = session.context.get("mensaje")
+    assert not variable.is_empty()
+    assert variable.to_string() == "guardando esto"

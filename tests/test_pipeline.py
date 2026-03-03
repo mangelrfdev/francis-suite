@@ -899,3 +899,154 @@ def test_convert_xml_to_json():
     result = session.context.get("resultado").to_string()
     assert "Francis" in result
     assert "nombre" in result
+
+def test_file_write_and_read(tmp_path):
+    """file-write should write content and file-read should read it back."""
+    output = tmp_path / "test.txt"
+
+    xml = f"""
+    <francis-workflow>
+        <file-write path="{output}">Hola Francis</file-write>
+        <box-def name="contenido">
+            <file-read path="{output}"/>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-file")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("contenido").to_string() == "Hola Francis"
+
+def test_file_write_append(tmp_path):
+    """file-write with append=true should append content."""
+    output = tmp_path / "test.txt"
+
+    xml = f"""
+    <francis-workflow>
+        <file-write path="{output}">linea 1</file-write>
+        <file-write path="{output}" append="true"> linea 2</file-write>
+        <box-def name="contenido">
+            <file-read path="{output}"/>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-file-append")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert "linea 1" in session.context.get("contenido").to_string()
+    assert "linea 2" in session.context.get("contenido").to_string()
+
+def test_file_manage_delete(tmp_path):
+    """file-manage delete should remove a file."""
+    target = tmp_path / "delete_me.txt"
+    target.write_text("borrame")
+
+    xml = f"""
+    <francis-workflow>
+        <file-manage action="delete" path="{target}"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-file-delete")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert not target.exists()
+
+def test_file_manage_list(tmp_path):
+    """file-manage list should return list of files."""
+    (tmp_path / "a.txt").write_text("a")
+    (tmp_path / "b.txt").write_text("b")
+    (tmp_path / "c.txt").write_text("c")
+
+    xml = f"""
+    <francis-workflow>
+        <box-def name="archivos">
+            <file-manage action="list" path="{tmp_path}" filter="*.txt"/>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-file-list")
+
+    assert session.status == SessionStatus.COMPLETED
+    result = session.context.get("archivos")
+    assert len(result.to_list()) == 3
+
+def test_file_manage_copy(tmp_path):
+    """file-manage copy should copy a file to destination."""
+    source = tmp_path / "original.txt"
+    dest = tmp_path / "copia.txt"
+    source.write_text("contenido original")
+
+    xml = f"""
+    <francis-workflow>
+        <file-manage action="copy" path="{source}" dest="{dest}"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-file-copy")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert dest.exists()
+    assert dest.read_text() == "contenido original"
+
+def test_file_manage_move(tmp_path):
+    """file-manage move should move a file to destination."""
+    source = tmp_path / "original.txt"
+    dest = tmp_path / "movido.txt"
+    source.write_text("contenido")
+
+    xml = f"""
+    <francis-workflow>
+        <file-manage action="move" path="{source}" dest="{dest}"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-file-move")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert dest.exists()
+    assert not source.exists()
+    assert dest.read_text() == "contenido"
+
+def test_file_read_not_found():
+    """file-read should fail when file does not exist."""
+    xml = """
+    <francis-workflow>
+        <file-read path="no_existe.txt"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-file-read-not-found")
+
+    assert session.status == SessionStatus.FAILED

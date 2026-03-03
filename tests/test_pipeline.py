@@ -301,3 +301,21 @@ def test_box_retrieves_variable():
 
     assert session.status == SessionStatus.COMPLETED
     assert session.context.get("copia").to_string() == "hola"
+
+def test_while_executes_while_true():
+    """while should execute children while condition is true."""
+    xml = """
+    <francis-workflow>
+        <while condition="1 == 2">
+            <log>no deberia ejecutarse</log>
+        </while>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-while")
+
+    assert session.status == SessionStatus.COMPLETED

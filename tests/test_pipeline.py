@@ -4,7 +4,8 @@ tests/test_pipeline.py
 End-to-end test of the full execution pipeline.
 Tests that a workflow XML can be parsed and executed correctly.
 """
-
+import respx
+import httpx
 from francis_suite.core.parser import FParser
 from francis_suite.core.runtime import FRuntime
 from francis_suite.core.session import SessionStatus
@@ -118,3 +119,29 @@ def test_empty_returns_empty_variable():
 
     assert session.status == SessionStatus.COMPLETED
     assert session.context.get("nada").is_empty()
+
+def test_http_call_fetches_url():
+    """http-call should fetch a URL and return the response body."""
+    xml = """
+    <francis-workflow>
+        <box-def var="page">
+            <http-call url="https://example.com"/>
+        </box-def>
+    </francis-workflow>
+    """
+
+    with respx.mock:
+        respx.get("https://example.com").mock(
+            return_value=httpx.Response(200, text="<html>Hello</html>")
+        )
+
+        parser = FParser()
+        runtime = FRuntime()
+
+        root = parser.parse_string(xml)
+        session = runtime.run(root, workflow_name="test-http-call")
+
+    assert session.status == SessionStatus.COMPLETED
+    result = session.context.get("page")
+    assert not result.is_empty()
+    assert "<html>Hello</html>" in result.to_string()

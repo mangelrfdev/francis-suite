@@ -17,6 +17,12 @@ It reimagines WebHarvest's plugin architecture using a modern Python stack.
 - **FastAPI** — REST API / IDE backend
 - **uv** — packaging and environment management
 
+## Dev Stack
+
+- **pytest** — testing framework
+- **respx** — HTTP mocking for tests
+- **ruff** — linter and formatter
+
 ## Status
 
 🚧 Early development — foundation phase.

@@ -283,6 +283,59 @@ print(session.status)    # SessionStatus.COMPLETED
 print(session.duration)  # 2.34 (segundos)
 ```
 
+## core/events.py
+
+### ¿Qué problema resuelve?
+
+Durante la ejecución, distintas partes del sistema necesitan
+saber qué está pasando sin estar directamente conectadas entre sí.
+El EventBus es el canal de comunicación entre ellas.
+
+### Patrón publish/subscribe
+```
+Runtime                    Listeners
+  │                            │
+  ├─ emit(SessionStarted)  ──► Logger
+  ├─ emit(HandStarted)     ──► IDE
+  ├─ emit(HandCompleted)   ──► IDE
+  └─ emit(SessionFailed)   ──► Logger, IDE
+```
+
+### Eventos disponibles
+
+**Sesión:**
+- `SessionStartedEvent` — la sesión empezó
+- `SessionCompletedEvent` — la sesión terminó bien
+- `SessionFailedEvent` — la sesión falló
+- `SessionCancelledEvent` — la sesión fue cancelada
+
+**Hands:**
+- `HandStartedEvent` — un hand empezó a ejecutarse
+- `HandCompletedEvent` — un hand terminó bien
+- `HandFailedEvent` — un hand lanzó un error
+
+### Ejemplo
+```python
+bus = EventBus()
+
+@bus.on(SessionStartedEvent)
+def on_start(event):
+    print(f"Session {event.session_id} started")
+
+bus.emit(SessionStartedEvent(session_id="abc-123"))
+```
+
+### Agregar un logger en el futuro
+
+Solo hay que suscribirse a los eventos que interesan:
+```python
+@bus.on(HandFailedEvent)
+def log_error(event):
+    logger.error(f"Hand <{event.tag}> failed: {event.error}")
+```
+
+El runtime no cambia nada — sigue emitiendo eventos igual.
+
 ## Próximos archivos
 
 | Archivo | Responsabilidad | Estado |
@@ -293,6 +346,6 @@ print(session.duration)  # 2.34 (segundos)
 | `core/registry.py` | Registro de plugins | ✅ Creado |
 | `core/parser.py` | XML → árbol de FNodes | ✅ Creado |
 | `core/session.py` | Sesión de ejecución | ✅ Creado |
-| `core/runtime.py` | Motor de ejecución | 🔲 Pendiente |
+| `core/runtime.py` | Motor de ejecución | ✅ Creado |
 | `core/events.py` | Sistema de eventos | 🔲 Pendiente |
 | `plugins/base.py` | Clase base de plugins | 🔲 Pendiente |

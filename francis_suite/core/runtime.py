@@ -22,6 +22,8 @@ from francis_suite.core.events import (
     HandFailedEvent,
 )
 from francis_suite.core.variables import FVariable, FEmptyVariable
+# Register all built-in hands
+import francis_suite.hands  # noqa: F401
 
 
 class FRuntime:

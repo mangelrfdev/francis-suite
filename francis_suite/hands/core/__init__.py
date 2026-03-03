@@ -11,3 +11,4 @@ from francis_suite.hands.core import sleep
 from francis_suite.hands.core import empty
 from francis_suite.hands.core import http_call
 from francis_suite.hands.core import convert_html_to_xml
+from francis_suite.hands.core import xpath_extract

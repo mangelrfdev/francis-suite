@@ -170,3 +170,24 @@ def test_convert_html_to_xml():
     result = session.context.get("clean")
     assert not result.is_empty()
     assert "h1" in result.to_string()
+
+def test_xpath_extract_gets_text():
+    """xpath-extract should apply XPath and return matching results."""
+    xml_workflow = """
+    <francis-workflow>
+        <box-def var="resultado">
+            <xpath-extract expression="//h1/text()"><![CDATA[<html><body><h1>Hola mundo</h1></body></html>]]></xpath-extract>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml_workflow)
+    session = runtime.run(root, workflow_name="test-xpath")
+
+    assert session.status == SessionStatus.COMPLETED
+    result = session.context.get("resultado")
+    assert not result.is_empty()
+    assert "Hola mundo" in result.to_string()

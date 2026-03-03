@@ -16,6 +16,7 @@ It reimagines WebHarvest's plugin architecture using a modern Python stack.
 - **Playwright** — browser automation
 - **FastAPI** — REST API / IDE backend
 - **uv** — packaging and environment management
+- **simpleeval** — safe expression evaluation engine
 
 ## Dev Stack
 
@@ -43,15 +44,8 @@ examples/
 
 ## Nomenclature
 
-Francis Suite renames WebHarvest tags for clarity.
+Francis Suite hands tags for clarity.
 See [docs/nomenclatures.yaml](docs/nomenclatures.yaml) for the full mapping.
-
-| WebHarvest | Francis Suite |
-|---|---|
-| `<config>` | `<francis-workflow>` |
-| `<http>` | `<http-call>` |
-| `<xpath>` | `<xpath-extract>` |
-| `<def>` | `<box-def>` |
 
 ## Development
 ```bash

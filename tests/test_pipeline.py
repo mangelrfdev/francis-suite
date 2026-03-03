@@ -610,10 +610,9 @@ def test_evaluate_arithmetic():
 
     root = parser.parse_string(xml)
     session = runtime.run(root, workflow_name="test-evaluate-arithmetic")
-    
+
     assert session.status == SessionStatus.COMPLETED
     assert session.context.get("total").to_string() == "30"
-
 
 def test_evaluate_is_empty():
     """evaluate should support isEmpty() method call."""
@@ -637,7 +636,6 @@ def test_evaluate_is_empty():
     assert session.status == SessionStatus.COMPLETED
     assert session.context.get("resultado").to_string() == "False"
 
-
 def test_evaluate_to_upper():
     """evaluate should support toUpperCase() method call."""
     xml = """
@@ -659,3 +657,125 @@ def test_evaluate_to_upper():
 
     assert session.status == SessionStatus.COMPLETED
     assert session.context.get("resultado").to_string() == "FRANCIS"
+
+def test_else_executes_when_if_false():
+    """else should execute when preceding if condition is false."""
+    xml = """
+    <francis-workflow>
+        <box-def name="resultado">
+            <log>nada</log>
+        </box-def>
+        <if condition="1 == 2">
+            <box-def name="resultado">
+                <log>if ejecutado</log>
+            </box-def>
+        </if>
+        <else>
+            <box-def name="resultado">
+                <log>else ejecutado</log>
+            </box-def>
+        </else>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-else")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("resultado").to_string() == "else ejecutado"
+
+def test_else_skips_when_if_true():
+    """else should not execute when preceding if condition is true."""
+    xml = """
+    <francis-workflow>
+        <if condition="1 == 1">
+            <box-def name="resultado">
+                <log>if ejecutado</log>
+            </box-def>
+        </if>
+        <else>
+            <box-def name="resultado">
+                <log>else ejecutado</log>
+            </box-def>
+        </else>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-else-skip")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("resultado").to_string() == "if ejecutado"
+
+def test_case_executes_first_match():
+    """case should execute only the first matching if."""
+    xml = """
+    <francis-workflow>
+        <box-def name="tipo">
+            <log>B</log>
+        </box-def>
+        <box-def name="resultado">
+            <case>
+                <if condition="${tipo} == 'A'">
+                    <log>es tipo A</log>
+                </if>
+                <if condition="${tipo} == 'B'">
+                    <log>es tipo B</log>
+                </if>
+                <if condition="${tipo} == 'C'">
+                    <log>es tipo C</log>
+                </if>
+                <else>
+                    <log>tipo desconocido</log>
+                </else>
+            </case>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-case")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("resultado").to_string() == "es tipo B"
+
+def test_case_executes_else_when_no_match():
+    """case should execute else when no if matches."""
+    xml = """
+    <francis-workflow>
+        <box-def name="tipo">
+            <log>Z</log>
+        </box-def>
+        <box-def name="resultado">
+            <case>
+                <if condition="${tipo} == 'A'">
+                    <log>es tipo A</log>
+                </if>
+                <if condition="${tipo} == 'B'">
+                    <log>es tipo B</log>
+                </if>
+                <else>
+                    <log>tipo desconocido</log>
+                </else>
+            </case>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-case-else")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("resultado").to_string() == "tipo desconocido"

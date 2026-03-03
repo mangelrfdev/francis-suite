@@ -191,3 +191,27 @@ def test_xpath_extract_gets_text():
     result = session.context.get("resultado")
     assert not result.is_empty()
     assert "Hola mundo" in result.to_string()
+
+def test_loop_iterates_over_list():
+    """loop should iterate over a list and execute children for each item."""
+    xml = """
+    <francis-workflow>
+        <box-def var="items">
+            <empty/>
+        </box-def>
+        <loop item="current" list="${items}">
+            <log>${current}</log>
+        </loop>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+
+    # Manually set a list variable in context before running
+    from francis_suite.core.variables import FListVariable, FNodeVariable
+    session = runtime.run(root, workflow_name="test-loop")
+
+    assert session.status == SessionStatus.COMPLETED

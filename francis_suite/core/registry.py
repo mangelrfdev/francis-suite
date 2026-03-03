@@ -1,38 +1,38 @@
 """
 core/registry.py
 
-PluginRegistry maps XML tag names to their Plugin classes.
-Plugins register themselves automatically via the @plugin decorator.
+HandRegistry maps XML tag names to their Hand classes.
+Hands register themselves automatically via the @hand decorator.
 
 Example:
-    @plugin(tag="http-call")
-    class HttpCallPlugin(AbstractPlugin):
+    @hand(tag="http-call")
+    class HttpCallHand(AbstractHand):
         ...
 
-    registry = PluginRegistry.instance()
-    plugin_class = registry.get("http-call")  # HttpCallPlugin
+    registry = HandRegistry.instance()
+    hand_class = registry.get("http-call")  # HttpCallHand
 """
 
 from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from francis_suite.plugins.base import AbstractPlugin
+    from francis_suite.hands.base import AbstractHand
 
 
-class PluginRegistry:
+class HandRegistry:
     """
-    Central registry that maps tag names to Plugin classes.
+    Central registry that maps tag names to Hand classes.
     Implemented as a singleton — there is one registry per process.
     """
 
-    _instance: "PluginRegistry | None" = None
+    _instance: "HandRegistry | None" = None
 
     def __init__(self) -> None:
-        self._plugins: dict[str, type] = {}
+        self._hands: dict[str, type] = {}
 
     @classmethod
-    def instance(cls) -> "PluginRegistry":
+    def instance(cls) -> "HandRegistry":
         """Return the global singleton registry."""
         if cls._instance is None:
             cls._instance = cls()
@@ -46,63 +46,63 @@ class PluginRegistry:
         """
         cls._instance = None
 
-    def register(self, tag: str, plugin_class: type) -> None:
+    def register(self, tag: str, hand_class: type) -> None:
         """
-        Register a plugin class under a tag name.
+        Register a hand class under a tag name.
         Raises ValueError if the tag is already registered.
         """
-        if tag in self._plugins:
-            existing = self._plugins[tag].__name__
+        if tag in self._hands:
+            existing = self._hands[tag].__name__
             raise ValueError(
                 f"Tag '{tag}' is already registered by {existing}. "
-                f"Cannot register {plugin_class.__name__} for the same tag."
+                f"Cannot register {hand_class.__name__} for the same tag."
             )
-        self._plugins[tag] = plugin_class
+        self._hands[tag] = hand_class
 
     def get(self, tag: str) -> type | None:
         """
-        Return the plugin class for a tag name.
+        Return the hand class for a tag name.
         Returns None if the tag is not registered.
         """
-        return self._plugins.get(tag)
+        return self._hands.get(tag)
 
     def require(self, tag: str) -> type:
         """
-        Return the plugin class for a tag name.
+        Return the hand class for a tag name.
         Raises ValueError if the tag is not registered.
         Use this in the runtime where unknown tags are errors.
         """
-        plugin_class = self._plugins.get(tag)
-        if plugin_class is None:
+        hand_class = self._hands.get(tag)
+        if hand_class is None:
             raise ValueError(
                 f"Unknown tag <{tag}>. "
-                f"No plugin is registered for this tag name."
+                f"No hand is registered for this tag name."
             )
-        return plugin_class
+        return hand_class
 
     def all_tags(self) -> list[str]:
         """Return all registered tag names."""
-        return list(self._plugins.keys())
+        return list(self._hands.keys())
 
     def __len__(self) -> int:
-        return len(self._plugins)
+        return len(self._hands)
 
     def __repr__(self) -> str:
-        return f"PluginRegistry({len(self._plugins)} plugins: {self.all_tags()})"
+        return f"HandRegistry({len(self._hands)} hands: {self.all_tags()})"
 
 
-def plugin(tag: str):
+def hand(tag: str):
     """
-    Decorator that registers a Plugin class in the global registry.
+    Decorator that registers a Hand class in the global registry.
 
     Usage:
-        @plugin(tag="http-call")
-        class HttpCallPlugin(AbstractPlugin):
+        @hand(tag="http-call")
+        class HttpCallHand(AbstractHand):
             ...
 
     The class is registered automatically when the module is imported.
     """
     def decorator(cls: type) -> type:
-        PluginRegistry.instance().register(tag, cls)
+        HandRegistry.instance().register(tag, cls)
         return cls
     return decorator

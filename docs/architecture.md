@@ -160,6 +160,49 @@ with ctx.new_scope():
 ctx.get("item")  # FEmptyVariable — ya no existe
 ```
 
+## core/registry.py
+
+### ¿Qué problema resuelve?
+
+Cuando el runtime encuentra un nodo con tag `http-call`, necesita
+saber qué clase Python ejecutar. El Registry es ese mapa.
+
+### Cómo funciona
+```
+"http-call"      →  HttpCallPlugin
+"xpath-extract"  →  XPathExtractPlugin
+"loop"           →  LoopPlugin
+```
+
+Los plugins se registran solos usando el decorador `@plugin`:
+```python
+@plugin(tag="http-call")
+class HttpCallPlugin(AbstractPlugin):
+    ...
+```
+
+Cuando Python importa ese módulo, el decorador se ejecuta
+automáticamente y registra la clase en el Registry.
+
+### Métodos importantes
+
+- `register(tag, class)` — registra un plugin (lo llama el decorador)
+- `get(tag)` — devuelve la clase o None si no existe
+- `require(tag)` — devuelve la clase o lanza error si no existe
+- `all_tags()` — lista todos los tags registrados
+- `reset()` — solo para tests, nunca en producción
+
+### El decorador @plugin
+```python
+# En vez de registrar manualmente:
+PluginRegistry.instance().register("http-call", HttpCallPlugin)
+
+# Usamos el decorador:
+@plugin(tag="http-call")
+class HttpCallPlugin(AbstractPlugin):
+    ...
+```
+
 ## Próximos archivos
 
 | Archivo | Responsabilidad | Estado |
@@ -167,7 +210,7 @@ ctx.get("item")  # FEmptyVariable — ya no existe
 | `core/variables.py` | Tipos de variables | ✅ Creado |
 | `core/nodes.py` | Nodo XML parseado | ✅ Creado |
 | `core/context.py` | Store de variables con scope | ✅ Creado |
-| `core/registry.py` | Registro de plugins | 🔲 Pendiente |
+| `core/registry.py` | Registro de plugins | ✅ Creado |
 | `core/parser.py` | XML → árbol de FNodes | 🔲 Pendiente |
 | `core/session.py` | Sesión de ejecución | 🔲 Pendiente |
 | `core/runtime.py` | Motor de ejecución | 🔲 Pendiente |

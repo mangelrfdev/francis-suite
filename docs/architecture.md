@@ -202,6 +202,51 @@ HandRegistry.instance().register("http-call", HttpCallHand)
 class HttpCallHand(AbstractHand):
     ...
 ```
+
+## core/parser.py
+
+### ¿Qué problema resuelve?
+
+Es el primer paso del pipeline. Lee el archivo XML del workflow
+y lo convierte en un árbol de FNodes que el runtime puede ejecutar.
+
+### Cómo funciona
+```
+workflow.xml
+    ↓
+lxml etree.fromstring()
+    ↓
+_element_to_fnode() recursivo
+    ↓
+FNode tree
+```
+
+### Métodos principales
+
+- `parse_file(path)` — lee un archivo XML del disco
+- `parse_string(xml)` — parsea desde un string (útil para tests)
+- `parse_bytes(xml)` — método central, los otros dos llaman este
+
+### Validaciones
+
+- El archivo debe existir
+- El XML debe ser válido
+- El tag raíz debe ser `<francis-workflow>`
+
+### Ejemplo
+```python
+parser = FParser()
+root = parser.parse_file("workflow.xml")
+# root = FNode(tag="francis-workflow", children=[...])
+
+# O desde string (útil en tests):
+root = parser.parse_string("""
+    <francis-workflow>
+        <log>Hola mundo</log>
+    </francis-workflow>
+""")
+```
+
 ## Próximos archivos
 
 | Archivo | Responsabilidad | Estado |
@@ -210,7 +255,7 @@ class HttpCallHand(AbstractHand):
 | `core/nodes.py` | Nodo XML parseado | ✅ Creado |
 | `core/context.py` | Store de variables con scope | ✅ Creado |
 | `core/registry.py` | Registro de plugins | ✅ Creado |
-| `core/parser.py` | XML → árbol de FNodes | 🔲 Pendiente |
+| `core/parser.py` | XML → árbol de FNodes | ✅ Creado |
 | `core/session.py` | Sesión de ejecución | 🔲 Pendiente |
 | `core/runtime.py` | Motor de ejecución | 🔲 Pendiente |
 | `core/events.py` | Sistema de eventos | 🔲 Pendiente |

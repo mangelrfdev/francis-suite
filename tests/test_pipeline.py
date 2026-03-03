@@ -51,7 +51,7 @@ def test_box_def_stores_variable():
     """box-def should execute children and store result in context."""
     xml = """
     <francis-workflow>
-        <box-def var="mensaje">
+        <box-def name="mensaje">
             <log>guardando esto</log>
         </box-def>
     </francis-workflow>
@@ -105,7 +105,7 @@ def test_empty_returns_empty_variable():
     """empty tag should return an empty variable."""
     xml = """
     <francis-workflow>
-        <box-def var="nada">
+        <box-def name="nada">
             <empty/>
         </box-def>
     </francis-workflow>
@@ -124,7 +124,7 @@ def test_http_call_fetches_url():
     """http-call should fetch a URL and return the response body."""
     xml = """
     <francis-workflow>
-        <box-def var="page">
+        <box-def name="page">
             <http-call url="https://example.com"/>
         </box-def>
     </francis-workflow>
@@ -150,7 +150,7 @@ def test_convert_html_to_xml():
     """convert-html-to-xml should clean HTML and return valid XML."""
     xml = """
     <francis-workflow>
-        <box-def var="clean">
+        <box-def name="clean">
             <convert-html-to-xml>
                 <log>&lt;html&gt;&lt;body&gt;&lt;h1&gt;Hello&lt;/h1&gt;&lt;/body&gt;&lt;/html&gt;</log>
             </convert-html-to-xml>
@@ -175,7 +175,7 @@ def test_xpath_extract_gets_text():
     """xpath-extract should apply XPath and return matching results."""
     xml_workflow = """
     <francis-workflow>
-        <box-def var="resultado">
+        <box-def name="resultado">
             <xpath-extract expression="//h1/text()"><![CDATA[<html><body><h1>Hola mundo</h1></body></html>]]></xpath-extract>
         </box-def>
     </francis-workflow>
@@ -196,7 +196,7 @@ def test_loop_iterates_over_list():
     """loop should iterate over a list and execute children for each item."""
     xml = """
     <francis-workflow>
-        <box-def var="items">
+        <box-def name="items">
             <empty/>
         </box-def>
         <loop item="current" list="${items}">
@@ -220,7 +220,7 @@ def test_if_executes_when_true():
     """if should execute children when condition is true."""
     xml = """
     <francis-workflow>
-        <box-def var="resultado">
+        <box-def name="resultado">
             <if condition="1 == 1">
                 <log>condicion verdadera</log>
             </if>
@@ -241,7 +241,7 @@ def test_if_skips_when_false():
     """if should skip children when condition is false."""
     xml = """
     <francis-workflow>
-        <box-def var="resultado">
+        <box-def name="resultado">
             <if condition="1 == 2">
                 <log>no deberia ejecutarse</log>
             </if>
@@ -257,3 +257,47 @@ def test_if_skips_when_false():
 
     assert session.status == SessionStatus.COMPLETED
     assert session.context.get("resultado").is_empty()
+
+def test_box_def_stores_variable():
+    """box-def should execute children and store result in context."""
+    xml = """
+    <francis-workflow>
+        <box-def name="mensaje">
+            <log>guardando esto</log>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-box-def")
+
+    assert session.status == SessionStatus.COMPLETED
+    variable = session.context.get("mensaje")
+    assert not variable.is_empty()
+    assert variable.to_string() == "guardando esto"
+
+
+def test_box_retrieves_variable():
+    """box should retrieve a previously stored variable."""
+    xml = """
+    <francis-workflow>
+        <box-def name="mensaje">
+            <log>hola</log>
+        </box-def>
+        <box-def name="copia">
+            <box name="mensaje"/>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-box")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("copia").to_string() == "hola"

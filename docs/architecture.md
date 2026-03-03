@@ -247,6 +247,42 @@ root = parser.parse_string("""
 """)
 ```
 
+## core/session.py
+
+### ¿Qué problema resuelve?
+
+Cada vez que ejecutas un workflow, Francis Suite necesita un
+contenedor que agrupe todo lo que pasa durante esa ejecución:
+su identidad, su estado, sus métricas y sus variables.
+
+### Estados posibles
+```
+CREATED → RUNNING → COMPLETED
+                  → FAILED
+                  → CANCELLED
+```
+
+### Qué contiene una sesión
+
+- `id` — UUID único, identifica esta ejecución
+- `status` — estado actual (SessionStatus)
+- `context` — el FContext con todas las variables
+- `created_at / started_at / finished_at` — timestamps
+- `duration` — segundos que tardó la ejecución
+- `error` — la excepción si la sesión falló
+
+### Ejemplo
+```python
+session = FrancisSession(workflow_name="mi-workflow")
+session.start()
+# ... ejecución ...
+session.complete()
+
+print(session.id)        # "abc-123-..."
+print(session.status)    # SessionStatus.COMPLETED
+print(session.duration)  # 2.34 (segundos)
+```
+
 ## Próximos archivos
 
 | Archivo | Responsabilidad | Estado |
@@ -256,7 +292,7 @@ root = parser.parse_string("""
 | `core/context.py` | Store de variables con scope | ✅ Creado |
 | `core/registry.py` | Registro de plugins | ✅ Creado |
 | `core/parser.py` | XML → árbol de FNodes | ✅ Creado |
-| `core/session.py` | Sesión de ejecución | 🔲 Pendiente |
+| `core/session.py` | Sesión de ejecución | ✅ Creado |
 | `core/runtime.py` | Motor de ejecución | 🔲 Pendiente |
 | `core/events.py` | Sistema de eventos | 🔲 Pendiente |
 | `plugins/base.py` | Clase base de plugins | 🔲 Pendiente |

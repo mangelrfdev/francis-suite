@@ -33,3 +33,4 @@ from francis_suite.hands.core import text_format
 from francis_suite.hands.core import text_split
 from francis_suite.hands.core import evaluate
 from francis_suite.hands.core import exit_
+from francis_suite.hands.core import build_list

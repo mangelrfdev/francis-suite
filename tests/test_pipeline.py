@@ -803,3 +803,31 @@ def test_exit_stops_workflow():
     assert session.status == SessionStatus.COMPLETED
     assert session.context.get("antes").to_string() == "antes del exit"
     assert session.context.get("despues").is_empty()
+
+def test_build_list_creates_list():
+    """build-list should create a FListVariable from children results."""
+    xml = """
+    <francis-workflow>
+        <box-def name="items">
+            <build-list>
+                <log>uno</log>
+                <log>dos</log>
+                <log>tres</log>
+            </build-list>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-build-list")
+
+    assert session.status == SessionStatus.COMPLETED
+    result = session.context.get("items")
+    assert not result.is_empty()
+    assert len(result.to_list()) == 3
+    assert result.to_list()[0].to_string() == "uno"
+    assert result.to_list()[1].to_string() == "dos"
+    assert result.to_list()[2].to_string() == "tres"

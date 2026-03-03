@@ -8,9 +8,9 @@ Example:
     @hand(tag="log")
     class LogHand(AbstractHand):
         def execute(self) -> FVariable:
-            value = self.get_body()
-            print(value.to_string())
-            return value
+            text = self.get_body_text()
+            print(text)
+            return FNodeVariable(text)
 """
 
 from __future__ import annotations
@@ -32,14 +32,16 @@ class AbstractHand(ABC):
         - self.node    — the FNode with tag, attrs, and children
         - self.session — the current FrancisSession
         - self.context — shortcut to session.context
+        - self.runtime — the FRuntime instance
 
     Subclasses must implement:
         - execute() — the hand's core logic
     """
 
-    def __init__(self, node: FNode, session: FrancisSession) -> None:
+    def __init__(self, node: FNode, session: FrancisSession, runtime) -> None:
         self._node = node
         self._session = session
+        self._runtime = runtime
 
     # --- Core ---
 
@@ -101,6 +103,17 @@ class AbstractHand(ABC):
     def has_children(self) -> bool:
         """Return True if this node has child elements."""
         return self._node.has_children()
+
+    def execute_children(self) -> FVariable:
+        """
+        Execute all child nodes and return the result of the last one.
+        Used by hands like box-def, loop, if, try, etc.
+        """
+        return self._runtime._execute_children(self._node, self._session)
+
+    def execute_child(self, node: FNode) -> FVariable:
+        """Execute a single specific child node."""
+        return self._runtime.execute_node(node, self._session)
 
     # --- Representation ---
 

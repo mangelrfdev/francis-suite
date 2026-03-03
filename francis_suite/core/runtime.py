@@ -99,7 +99,7 @@ class FRuntime:
 
         try:
             hand_class = self._registry.require(node.tag)
-            hand = hand_class(node, session)
+            hand = hand_class(node, session, self)
             result = hand.execute()
 
             self._bus.emit(HandCompletedEvent(

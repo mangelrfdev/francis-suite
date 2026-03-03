@@ -545,3 +545,46 @@ def test_text_format_unknown_var_stays():
 
     assert session.status == SessionStatus.COMPLETED
     assert session.context.get("resultado").to_string() == "Valor: ${no-existe}"
+
+def test_text_split_splits_by_delimiter():
+    """text-split should split text by delimiter and return a list."""
+    xml = """
+    <francis-workflow>
+        <box-def name="frutas">
+            <text-split delimiter=",">manzana,pera,uva</text-split>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-text-split")
+
+    assert session.status == SessionStatus.COMPLETED
+    result = session.context.get("frutas")
+    assert not result.is_empty()
+    assert len(result.to_list()) == 3
+
+def test_text_split_trims_tokens():
+    """text-split should trim whitespace from tokens by default."""
+    xml = """
+    <francis-workflow>
+        <box-def name="items">
+            <text-split delimiter=",">  uno  ,  dos  ,  tres  </text-split>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-text-split-trim")
+
+    assert session.status == SessionStatus.COMPLETED
+    items = session.context.get("items").to_list()
+    assert items[0].to_string() == "uno"
+    assert items[1].to_string() == "dos"
+    assert items[2].to_string() == "tres"

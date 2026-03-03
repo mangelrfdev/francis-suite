@@ -28,3 +28,4 @@ from francis_suite.hands.core import regex_pattern
 from francis_suite.hands.core import regex_input
 from francis_suite.hands.core import regex_results
 from francis_suite.hands.core import text_format
+from francis_suite.hands.core import text_split

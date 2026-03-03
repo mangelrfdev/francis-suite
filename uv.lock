@@ -87,6 +87,7 @@ dependencies = [
     { name = "playwright" },
     { name = "pyyaml" },
     { name = "scrapling" },
+    { name = "simpleeval" },
 ]
 
 [package.optional-dependencies]
@@ -114,6 +115,7 @@ requires-dist = [
     { name = "respx", marker = "extra == 'dev'", specifier = ">=0.20" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4" },
     { name = "scrapling", specifier = ">=0.2" },
+    { name = "simpleeval", specifier = ">=1.0.3" },
 ]
 provides-extras = ["dev"]
 
@@ -703,6 +705,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/fb/fa/375d4b78b0c320c46b81464d685c2c3c3138370ae6ac86c785aaab781d5a/scrapling-0.4.1.tar.gz", hash = "sha256:e2c82b6ce9dee2c06060420f862d14c4e2a3c4e8e37e9df76cdbf90dc9d90505", size = 105687, upload-time = "2026-02-27T04:13:19.317Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2d/7c/7496abccf70473f469521643160b16f0dd2a17bdea18c6825e7240d8dc79/scrapling-0.4.1-py3-none-any.whl", hash = "sha256:b74696b32abcea559ef2dd23989143ac8e733959af2fdd4fb01fcd31ad8cdece", size = 116071, upload-time = "2026-02-27T04:13:17.674Z" },
+]
+
+[[package]]
+name = "simpleeval"
+version = "1.0.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ff/6f/15be211749430f52f2c8f0c69158a6fc961c03aac93fa28d44d1a6f5ebc7/simpleeval-1.0.3.tar.gz", hash = "sha256:67bbf246040ac3b57c29cf048657b9cf31d4e7b9d6659684daa08ca8f1e45829", size = 24358, upload-time = "2024-11-02T10:29:46.912Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a0/e9/e58082fbb8cecbb6fb4133033c40cc50c248b1a331582be3a0f39138d65b/simpleeval-1.0.3-py3-none-any.whl", hash = "sha256:e3bdbb8c82c26297c9a153902d0fd1858a6c3774bf53ff4f134788c3f2035c38", size = 15762, upload-time = "2024-11-02T10:29:45.706Z" },
 ]
 
 [[package]]

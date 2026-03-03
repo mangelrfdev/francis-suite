@@ -169,15 +169,15 @@ saber qué clase Python ejecutar. El Registry es ese mapa.
 
 ### Cómo funciona
 ```
-"http-call"      →  HttpCallPlugin
-"xpath-extract"  →  XPathExtractPlugin
-"loop"           →  LoopPlugin
+"http-call"      →  HttpCallHand
+"xpath-extract"  →  XPathExtractHand
+"loop"           →  LoopHand
 ```
 
-Los plugins se registran solos usando el decorador `@plugin`:
+Los hands se registran solos usando el decorador `@hand`:
 ```python
-@plugin(tag="http-call")
-class HttpCallPlugin(AbstractPlugin):
+@hand(tag="http-call")
+class HttpCallHand(AbstractHand):
     ...
 ```
 
@@ -186,23 +186,22 @@ automáticamente y registra la clase en el Registry.
 
 ### Métodos importantes
 
-- `register(tag, class)` — registra un plugin (lo llama el decorador)
+- `register(tag, class)` — registra un hand (lo llama el decorador)
 - `get(tag)` — devuelve la clase o None si no existe
 - `require(tag)` — devuelve la clase o lanza error si no existe
 - `all_tags()` — lista todos los tags registrados
 - `reset()` — solo para tests, nunca en producción
 
-### El decorador @plugin
+### El decorador @hand
 ```python
 # En vez de registrar manualmente:
-PluginRegistry.instance().register("http-call", HttpCallPlugin)
+HandRegistry.instance().register("http-call", HttpCallHand)
 
 # Usamos el decorador:
-@plugin(tag="http-call")
-class HttpCallPlugin(AbstractPlugin):
+@hand(tag="http-call")
+class HttpCallHand(AbstractHand):
     ...
 ```
-
 ## Próximos archivos
 
 | Archivo | Responsabilidad | Estado |

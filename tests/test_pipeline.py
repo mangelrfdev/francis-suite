@@ -857,3 +857,45 @@ def test_call_workflow_executes_external_file(tmp_path):
 
     assert session.status == SessionStatus.COMPLETED
     assert session.context.get("externo").to_string() == "valor externo"
+
+def test_convert_json_to_xml():
+    """convert-json-to-xml should convert JSON string to XML."""
+    xml = """
+    <francis-workflow>
+        <box-def name="resultado">
+            <convert-json-to-xml root="persona">{"nombre": "Francis", "edad": "30"}</convert-json-to-xml>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-json-to-xml")
+
+    assert session.status == SessionStatus.COMPLETED
+    result = session.context.get("resultado").to_string()
+    assert "<nombre>Francis</nombre>" in result
+    assert "<edad>30</edad>" in result
+
+def test_convert_xml_to_json():
+    """convert-xml-to-json should convert XML string to JSON."""
+    xml = """
+    <francis-workflow>
+        <box-def name="resultado">
+            <convert-xml-to-json>&lt;persona&gt;&lt;nombre&gt;Francis&lt;/nombre&gt;&lt;/persona&gt;</convert-xml-to-json>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-xml-to-json")
+
+    assert session.status == SessionStatus.COMPLETED
+    result = session.context.get("resultado").to_string()
+    assert "Francis" in result
+    assert "nombre" in result

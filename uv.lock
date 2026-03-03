@@ -88,6 +88,7 @@ dependencies = [
     { name = "pyyaml" },
     { name = "scrapling" },
     { name = "simpleeval" },
+    { name = "xmltodict" },
 ]
 
 [package.optional-dependencies]
@@ -116,6 +117,7 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4" },
     { name = "scrapling", specifier = ">=0.2" },
     { name = "simpleeval", specifier = ">=1.0.3" },
+    { name = "xmltodict", specifier = ">=1.0.4" },
 ]
 provides-extras = ["dev"]
 
@@ -766,4 +768,13 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f1/91/186665abf1a6d16c0c5ea1f0e681d9c852b45c3a750aa8657f8f956690a8/w3lib-2.4.0.tar.gz", hash = "sha256:e233ad21649b69d0e047a10f30181ae9677524a29f6f71f6f3c758dc0c8d2648", size = 48302, upload-time = "2026-01-29T07:05:07.504Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2e/f5/ce3ab627e0cb51591c9e3dc4b9b173f15d7f2bec1c0010420b15fc442940/w3lib-2.4.0-py3-none-any.whl", hash = "sha256:260b5a22aeb86ae73213857f69ed20829a45150f8d5b12050b1f02ada414db79", size = 21603, upload-time = "2026-01-29T07:05:05.841Z" },
+]
+
+[[package]]
+name = "xmltodict"
+version = "1.0.4"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/19/70/80f3b7c10d2630aa66414bf23d210386700aa390547278c789afa994fd7e/xmltodict-1.0.4.tar.gz", hash = "sha256:6d94c9f834dd9e44514162799d344d815a3a4faec913717a9ecbfa5be1bb8e61", size = 26124, upload-time = "2026-02-22T02:21:22.074Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/38/34/98a2f52245f4d47be93b580dae5f9861ef58977d73a79eb47c58f1ad1f3a/xmltodict-1.0.4-py3-none-any.whl", hash = "sha256:a4a00d300b0e1c59fc2bfccb53d7b2e88c32f200df138a0dd2229f842497026a", size = 13580, upload-time = "2026-02-22T02:21:21.039Z" },
 ]

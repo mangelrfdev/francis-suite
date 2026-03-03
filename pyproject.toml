@@ -12,6 +12,7 @@ dependencies = [
     "fastapi>=0.111",
     "pyyaml>=6.0",
     "simpleeval>=1.0.3",
+    "xmltodict>=1.0.4",
 ]
 
 [project.optional-dependencies]

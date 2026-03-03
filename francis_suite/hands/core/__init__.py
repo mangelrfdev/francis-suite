@@ -35,3 +35,5 @@ from francis_suite.hands.core import evaluate
 from francis_suite.hands.core import exit_
 from francis_suite.hands.core import build_list
 from francis_suite.hands.core import call_workflow
+from francis_suite.hands.core import convert_json_to_xml
+from francis_suite.hands.core import convert_xml_to_json

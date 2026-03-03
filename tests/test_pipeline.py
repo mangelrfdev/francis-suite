@@ -215,3 +215,45 @@ def test_loop_iterates_over_list():
     session = runtime.run(root, workflow_name="test-loop")
 
     assert session.status == SessionStatus.COMPLETED
+
+def test_if_executes_when_true():
+    """if should execute children when condition is true."""
+    xml = """
+    <francis-workflow>
+        <box-def var="resultado">
+            <if condition="1 == 1">
+                <log>condicion verdadera</log>
+            </if>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-if-true")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("resultado").to_string() == "condicion verdadera"
+
+def test_if_skips_when_false():
+    """if should skip children when condition is false."""
+    xml = """
+    <francis-workflow>
+        <box-def var="resultado">
+            <if condition="1 == 2">
+                <log>no deberia ejecutarse</log>
+            </if>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-if-false")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("resultado").is_empty()

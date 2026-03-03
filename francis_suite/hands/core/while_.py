@@ -13,10 +13,11 @@ Usage in XML:
 from __future__ import annotations
 from francis_suite.core.registry import hand
 from francis_suite.core.variables import FVariable, FEmptyVariable
+from francis_suite.core.expressions import FrancisExpression
 from francis_suite.hands.base import AbstractHand
 
 
-MAX_ITERATIONS = 10_000  # safety limit to prevent infinite loops
+MAX_ITERATIONS = 10_000
 
 
 @hand(tag="while")
@@ -29,18 +30,14 @@ class WhileHand(AbstractHand):
 
     Returns:
         FEmptyVariable — while produces no direct output.
-
-    Example:
-        <while condition="${count} &lt; 3">
-            <log>iterating</log>
-        </while>
     """
 
     def execute(self) -> FVariable:
         condition = self.require_attr("condition")
+        engine = FrancisExpression(self.context)
         iterations = 0
 
-        while self._evaluate(condition):
+        while self._evaluate(condition, engine):
             if iterations >= MAX_ITERATIONS:
                 raise RuntimeError(
                     f"<while> exceeded maximum iterations ({MAX_ITERATIONS}). "
@@ -52,17 +49,14 @@ class WhileHand(AbstractHand):
 
         return FEmptyVariable()
 
-    def _evaluate(self, condition: str) -> bool:
-        """Evaluate a condition string safely."""
+    def _evaluate(self, condition: str, engine: FrancisExpression) -> bool:
         condition = condition.strip()
-
         if not condition:
             return False
-
         try:
-            result = eval(condition, {"__builtins__": {}}, {})
+            result = engine.evaluate(condition)
+            if isinstance(result, str):
+                return result.lower() not in ("false", "0", "no", "none", "")
             return bool(result)
         except Exception:
-            pass
-
-        return condition.lower() not in ("false", "0", "no", "none", "")
+            return False

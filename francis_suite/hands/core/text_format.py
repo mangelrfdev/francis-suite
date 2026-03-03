@@ -11,9 +11,9 @@ Usage in XML:
 """
 
 from __future__ import annotations
-import re
 from francis_suite.core.registry import hand
 from francis_suite.core.variables import FVariable, FNodeVariable, FEmptyVariable
+from francis_suite.core.expressions import FrancisExpression
 from francis_suite.hands.base import AbstractHand
 
 
@@ -32,11 +32,7 @@ class TextFormatHand(AbstractHand):
         <text-format>Hello ${name}, you have ${count} messages</text-format>
     """
 
-    # Matches ${varname} expressions
-    VAR_PATTERN = re.compile(r"\$\{([^}]+)\}")
-
     def execute(self) -> FVariable:
-        # Get template from body text or children
         if self.has_children():
             template = self.execute_children().to_string()
         else:
@@ -45,16 +41,6 @@ class TextFormatHand(AbstractHand):
         if not template:
             return FEmptyVariable()
 
-        result = self._interpolate(template)
+        engine = FrancisExpression(self.context)
+        result = engine.resolve(template)
         return FNodeVariable(result)
-
-    def _interpolate(self, template: str) -> str:
-        """Replace ${varname} with values from context."""
-        def replace(match: re.Match) -> str:
-            var_name = match.group(1).strip()
-            value = self.context.get(var_name)
-            if value.is_empty():
-                return match.group(0)  # leave as-is if not found
-            return value.to_string()
-
-        return self.VAR_PATTERN.sub(replace, template)

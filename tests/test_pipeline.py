@@ -588,3 +588,74 @@ def test_text_split_trims_tokens():
     assert items[0].to_string() == "uno"
     assert items[1].to_string() == "dos"
     assert items[2].to_string() == "tres"
+
+def test_evaluate_arithmetic():
+    """evaluate should compute arithmetic expressions."""
+    xml = """
+    <francis-workflow>
+        <box-def name="precio">
+            <log>10</log>
+        </box-def>
+        <box-def name="cantidad">
+            <log>3</log>
+        </box-def>
+        <box-def name="total">
+            <evaluate>${precio} * ${cantidad}</evaluate>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-evaluate-arithmetic")
+    
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("total").to_string() == "30"
+
+
+def test_evaluate_is_empty():
+    """evaluate should support isEmpty() method call."""
+    xml = """
+    <francis-workflow>
+        <box-def name="nombre">
+            <log>Francis</log>
+        </box-def>
+        <box-def name="resultado">
+            <evaluate>${nombre.isEmpty()}</evaluate>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-evaluate-isempty")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("resultado").to_string() == "False"
+
+
+def test_evaluate_to_upper():
+    """evaluate should support toUpperCase() method call."""
+    xml = """
+    <francis-workflow>
+        <box-def name="nombre">
+            <log>francis</log>
+        </box-def>
+        <box-def name="resultado">
+            <evaluate>${nombre.toUpperCase()}</evaluate>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-evaluate-upper")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("resultado").to_string() == "FRANCIS"

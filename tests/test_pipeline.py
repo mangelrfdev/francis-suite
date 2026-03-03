@@ -99,3 +99,22 @@ def test_sleep_invalid_seconds_fails():
     session = runtime.run(root, workflow_name="test-sleep-invalid")
 
     assert session.status == SessionStatus.FAILED
+
+def test_empty_returns_empty_variable():
+    """empty tag should return an empty variable."""
+    xml = """
+    <francis-workflow>
+        <box-def var="nada">
+            <empty/>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-empty")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("nada").is_empty()

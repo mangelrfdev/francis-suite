@@ -504,3 +504,44 @@ def test_regex_no_match_returns_empty():
 
     assert session.status == SessionStatus.COMPLETED
     assert session.context.get("resultado").is_empty()
+
+def test_text_format_interpolates_variables():
+    """text-format should replace ${var} with context values."""
+    xml = """
+    <francis-workflow>
+        <box-def name="nombre">
+            <log>Francis</log>
+        </box-def>
+        <box-def name="mensaje">
+            <text-format>Hola ${nombre}!</text-format>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-text-format")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("mensaje").to_string() == "Hola Francis!"
+
+def test_text_format_unknown_var_stays():
+    """text-format should leave unknown ${var} expressions as-is."""
+    xml = """
+    <francis-workflow>
+        <box-def name="resultado">
+            <text-format>Valor: ${no-existe}</text-format>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-text-format-unknown")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("resultado").to_string() == "Valor: ${no-existe}"

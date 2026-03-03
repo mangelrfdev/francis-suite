@@ -32,3 +32,4 @@ from francis_suite.hands.core import regex_results
 from francis_suite.hands.core import text_format
 from francis_suite.hands.core import text_split
 from francis_suite.hands.core import evaluate
+from francis_suite.hands.core import exit_

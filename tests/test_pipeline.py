@@ -779,3 +779,27 @@ def test_case_executes_else_when_no_match():
 
     assert session.status == SessionStatus.COMPLETED
     assert session.context.get("resultado").to_string() == "tipo desconocido"
+
+def test_exit_stops_workflow():
+    """exit should stop workflow execution cleanly."""
+    xml = """
+    <francis-workflow>
+        <box-def name="antes">
+            <log>antes del exit</log>
+        </box-def>
+        <exit/>
+        <box-def name="despues">
+            <log>despues del exit</log>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-exit")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("antes").to_string() == "antes del exit"
+    assert session.context.get("despues").is_empty()

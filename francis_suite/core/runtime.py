@@ -22,6 +22,7 @@ from francis_suite.core.events import (
     HandFailedEvent,
 )
 from francis_suite.core.variables import FVariable, FEmptyVariable
+from francis_suite.hands.core.exit_ import ExitWorkflow
 # Register all built-in hands
 import francis_suite.hands  # noqa: F401
 
@@ -72,6 +73,12 @@ class FRuntime:
 
         try:
             self._execute_children(root, session)
+            session.complete()
+            self._bus.emit(SessionCompletedEvent(
+                session_id=session.id,
+                duration=session.duration or 0.0,
+            ))
+        except ExitWorkflow:
             session.complete()
             self._bus.emit(SessionCompletedEvent(
                 session_id=session.id,

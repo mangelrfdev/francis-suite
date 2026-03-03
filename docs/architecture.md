@@ -124,13 +124,49 @@ cada nodo.
 
 ---
 
+
+## core/context.py
+
+### ¿Qué problema resuelve?
+
+Durante la ejecución, los plugins necesitan guardar y leer variables.
+`FContext` es ese almacén. Soporta scopes anidados — las variables
+definidas dentro de un loop o función no existen fuera.
+
+### Cómo funciona el scope
+```
+FContext
+├── scope global: { pagina, baseUrl }
+└── scope loop:   { item, index }
+    ← al salir del loop, item e index desaparecen
+```
+
+### Métodos importantes
+
+- `set(name, value)` — guarda variable en el scope actual
+- `get(name)` — busca de adentro hacia afuera, devuelve FEmptyVariable si no existe
+- `set_global(name, value)` — guarda directo en el scope global
+- `new_scope()` — context manager que crea y destruye un scope automáticamente
+
+### Ejemplo
+```python
+ctx = FContext()
+ctx.set("url", FNodeVariable("https://ejemplo.com"))
+
+with ctx.new_scope():
+    ctx.set("item", FNodeVariable("temporal"))
+    ctx.get("item")  # existe
+
+ctx.get("item")  # FEmptyVariable — ya no existe
+```
+
 ## Próximos archivos
 
 | Archivo | Responsabilidad | Estado |
 |---|---|---|
 | `core/variables.py` | Tipos de variables | ✅ Creado |
 | `core/nodes.py` | Nodo XML parseado | ✅ Creado |
-| `core/context.py` | Store de variables con scope | 🔲 Pendiente |
+| `core/context.py` | Store de variables con scope | ✅ Creado |
 | `core/registry.py` | Registro de plugins | 🔲 Pendiente |
 | `core/parser.py` | XML → árbol de FNodes | 🔲 Pendiente |
 | `core/session.py` | Sesión de ejecución | 🔲 Pendiente |

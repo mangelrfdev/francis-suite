@@ -66,3 +66,36 @@ def test_box_def_stores_variable():
     variable = session.context.get("mensaje")
     assert not variable.is_empty()
     assert variable.to_string() == "guardando esto"
+
+def test_sleep_executes():
+    """sleep should pause execution and return empty."""
+    xml = """
+    <francis-workflow>
+        <sleep seconds="0"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-sleep")
+
+    assert session.status == SessionStatus.COMPLETED
+
+
+def test_sleep_invalid_seconds_fails():
+    """sleep with invalid seconds attribute should fail the session."""
+    xml = """
+    <francis-workflow>
+        <sleep seconds="abc"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-sleep-invalid")
+
+    assert session.status == SessionStatus.FAILED

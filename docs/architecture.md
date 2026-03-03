@@ -336,6 +336,43 @@ def log_error(event):
 
 El runtime no cambia nada — sigue emitiendo eventos igual.
 
+## hands/base.py
+
+### ¿Qué problema resuelve?
+
+Todo hand necesita acceso al nodo XML, a la sesión, y al contexto
+de variables. `AbstractHand` provee todo eso — los hands concretos
+solo tienen que implementar `execute()`.
+
+### Contrato
+```python
+@hand(tag="mi-tag")
+class MiHand(AbstractHand):
+    def execute(self) -> FVariable:
+        # tu lógica aquí
+        return FNodeVariable("resultado")
+```
+
+### Lo que hereda cada hand
+
+- `self.node` — el FNode con tag, atributos e hijos
+- `self.session` — la sesión actual
+- `self.context` — atajo a session.context
+- `self.attr(name)` — obtiene un atributo XML
+- `self.require_attr(name)` — atributo requerido, error si falta
+- `self.get_body_text()` — texto entre las etiquetas
+- `self.has_children()` — si tiene nodos hijos
+
+### Ejemplo
+```python
+@hand(tag="log")
+class LogHand(AbstractHand):
+    def execute(self) -> FVariable:
+        text = self.get_body_text()
+        print(text)
+        return FNodeVariable(text)
+```
+
 ## Próximos archivos
 
 | Archivo | Responsabilidad | Estado |
@@ -347,5 +384,5 @@ El runtime no cambia nada — sigue emitiendo eventos igual.
 | `core/parser.py` | XML → árbol de FNodes | ✅ Creado |
 | `core/session.py` | Sesión de ejecución | ✅ Creado |
 | `core/runtime.py` | Motor de ejecución | ✅ Creado |
-| `core/events.py` | Sistema de eventos | 🔲 Pendiente |
+| `core/events.py` | Sistema de eventos | ✅ Creado |
 | `plugins/base.py` | Clase base de plugins | 🔲 Pendiente |

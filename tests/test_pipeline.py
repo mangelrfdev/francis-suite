@@ -145,3 +145,28 @@ def test_http_call_fetches_url():
     result = session.context.get("page")
     assert not result.is_empty()
     assert "<html>Hello</html>" in result.to_string()
+
+def test_convert_html_to_xml():
+    """convert-html-to-xml should clean HTML and return valid XML."""
+    xml = """
+    <francis-workflow>
+        <box-def var="clean">
+            <convert-html-to-xml>
+                <log>&lt;html&gt;&lt;body&gt;&lt;h1&gt;Hello&lt;/h1&gt;&lt;/body&gt;&lt;/html&gt;</log>
+            </convert-html-to-xml>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-convert")
+
+    print(f"\nERROR: {session.error}")
+
+    assert session.status == SessionStatus.COMPLETED
+    result = session.context.get("clean")
+    assert not result.is_empty()
+    assert "h1" in result.to_string()

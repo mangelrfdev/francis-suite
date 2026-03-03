@@ -373,6 +373,58 @@ class LogHand(AbstractHand):
         return FNodeVariable(text)
 ```
 
+## core/runtime.py
+
+### ¿Qué problema resuelve?
+
+Es el corazón del framework. Toma el árbol de FNodes que produjo
+el parser y lo ejecuta nodo por nodo, gestionando la sesión
+y emitiendo eventos en cada paso.
+
+### Cómo funciona
+```
+FRuntime.run(root)
+    ↓
+Crea FrancisSession
+    ↓
+Emite SessionStartedEvent
+    ↓
+_execute_children(root)
+    ↓
+Por cada hijo:
+    execute_node(child)
+        ↓
+    HandRegistry.require(tag) → HandClass
+        ↓
+    HandClass(node, session).execute()
+        ↓
+    Devuelve FVariable
+    ↓
+Emite SessionCompletedEvent (o SessionFailedEvent)
+    ↓
+Devuelve FrancisSession con status y métricas
+```
+
+### Métodos principales
+
+- `run(root, workflow_name)` — ejecuta el workflow completo,
+  siempre devuelve una sesión, nunca lanza excepciones
+- `execute_node(node, session)` — ejecuta un nodo individual
+- `_execute_children(node, session)` — ejecuta todos los hijos
+  de un nodo en orden
+
+### Ejemplo
+```python
+parser = FParser()
+runtime = FRuntime()
+
+root = parser.parse_file("workflow.xml")
+session = runtime.run(root, workflow_name="mi-workflow")
+
+print(session.status)    # SessionStatus.COMPLETED
+print(session.duration)  # 1.23
+```
+
 ## Próximos archivos
 
 | Archivo | Responsabilidad | Estado |
@@ -383,6 +435,6 @@ class LogHand(AbstractHand):
 | `core/registry.py` | Registro de plugins | ✅ Creado |
 | `core/parser.py` | XML → árbol de FNodes | ✅ Creado |
 | `core/session.py` | Sesión de ejecución | ✅ Creado |
-| `core/runtime.py` | Motor de ejecución | ✅ Creado |
 | `core/events.py` | Sistema de eventos | ✅ Creado |
-| `plugins/base.py` | Clase base de plugins | 🔲 Pendiente |
+| `hands/base.py` | Clase base de plugins | ✅ Creado |
+| `core/runtime.py` | Motor de ejecución | ✅ Creado |

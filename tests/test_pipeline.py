@@ -831,3 +831,29 @@ def test_build_list_creates_list():
     assert result.to_list()[0].to_string() == "uno"
     assert result.to_list()[1].to_string() == "dos"
     assert result.to_list()[2].to_string() == "tres"
+
+def test_call_workflow_executes_external_file(tmp_path):
+    """call-workflow should load and execute an external workflow file."""
+    external = tmp_path / "external.xml"
+    external.write_text("""
+    <francis-workflow>
+        <box-def name="externo">
+            <log>valor externo</log>
+        </box-def>
+    </francis-workflow>
+    """)
+
+    xml = f"""
+    <francis-workflow>
+        <call-workflow path="{external}"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-call-workflow")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("externo").to_string() == "valor externo"

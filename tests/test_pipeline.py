@@ -364,3 +364,143 @@ def test_try_executes_catch_on_error():
 
     assert session.status == SessionStatus.COMPLETED
     assert session.context.get("resultado").to_string() == "error capturado"
+
+def test_function_create_and_call():
+    """function-create should define and function-call should execute it."""
+    xml = """
+    <francis-workflow>
+        <function-create name="saludar">
+            <box-def name="msg">
+                <log>hola desde funcion</log>
+            </box-def>
+            <function-return>
+                <box name="msg"/>
+            </function-return>
+        </function-create>
+        <box-def name="resultado">
+            <function-call name="saludar"/>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-function")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("resultado").to_string() == "hola desde funcion"
+
+
+def test_function_call_with_params():
+    """function-call should inject params into function scope."""
+    xml = """
+    <francis-workflow>
+        <function-create name="repetir">
+            <function-return>
+                <box name="valor"/>
+            </function-return>
+        </function-create>
+        <box-def name="resultado">
+            <function-call name="repetir">
+                <function-param name="valor">texto de prueba</function-param>
+            </function-call>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-function-params")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("resultado").to_string() == "texto de prueba"
+
+
+def test_function_call_undefined_fails():
+    """function-call with undefined function should fail the session."""
+    xml = """
+    <francis-workflow>
+        <function-call name="no-existe"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-function-undefined")
+
+    assert session.status == SessionStatus.FAILED
+
+def test_regex_finds_match():
+    """regex should apply pattern and return match."""
+    xml = r"""
+    <francis-workflow>
+        <box-def name="precio">
+            <regex>
+                <regex-pattern><![CDATA[\d+\.\d{2}]]></regex-pattern>
+                <regex-input>El precio es 19.99 euros</regex-input>
+            </regex>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-regex")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("precio").to_string() == "19.99"
+
+
+def test_regex_with_groups_and_template():
+    """regex should apply template with capture groups."""
+    xml = r"""
+    <francis-workflow>
+        <box-def name="telefono">
+            <regex>
+                <regex-pattern><![CDATA[(\d{3})-(\d{3})-(\d{4})]]></regex-pattern>
+                <regex-input>Llama al 555-123-4567</regex-input>
+                <regex-results>(${group1}) ${group2}-${group3}</regex-results>
+            </regex>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-regex-groups")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("telefono").to_string() == "(555) 123-4567"
+
+
+def test_regex_no_match_returns_empty():
+    """regex with no match should return empty."""
+    xml = r"""
+    <francis-workflow>
+        <box-def name="resultado">
+            <regex>
+                <regex-pattern><![CDATA[\d+]]></regex-pattern>
+                <regex-input>no hay numeros aqui</regex-input>
+            </regex>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-regex-empty")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("resultado").is_empty()

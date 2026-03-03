@@ -19,3 +19,11 @@ from francis_suite.hands.core import box_def
 from francis_suite.hands.core import while_
 from francis_suite.hands.core import try_
 from francis_suite.hands.core import catch_
+from francis_suite.hands.core import function_create
+from francis_suite.hands.core import function_call
+from francis_suite.hands.core import function_param
+from francis_suite.hands.core import function_return
+from francis_suite.hands.core import regex
+from francis_suite.hands.core import regex_pattern
+from francis_suite.hands.core import regex_input
+from francis_suite.hands.core import regex_results

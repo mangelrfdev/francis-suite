@@ -319,3 +319,48 @@ def test_while_executes_while_true():
     session = runtime.run(root, workflow_name="test-while")
 
     assert session.status == SessionStatus.COMPLETED
+
+def test_try_completes_when_no_error():
+    """try should complete normally when no error occurs."""
+    xml = """
+    <francis-workflow>
+        <try>
+            <log>sin error</log>
+            <catch>
+                <log>no deberia ejecutarse</log>
+            </catch>
+        </try>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-try-ok")
+
+    assert session.status == SessionStatus.COMPLETED
+
+def test_try_executes_catch_on_error():
+    """try should execute catch block when an error occurs."""
+    xml = """
+    <francis-workflow>
+        <box-def name="resultado">
+            <try>
+                <tag-que-no-existe/>
+                <catch>
+                    <log>error capturado</log>
+                </catch>
+            </try>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-try-catch")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("resultado").to_string() == "error capturado"

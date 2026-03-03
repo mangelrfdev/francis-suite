@@ -17,3 +17,5 @@ from francis_suite.hands.core import if_
 from francis_suite.hands.core import box
 from francis_suite.hands.core import box_def
 from francis_suite.hands.core import while_
+from francis_suite.hands.core import try_
+from francis_suite.hands.core import catch_

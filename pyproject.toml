@@ -1,7 +1,7 @@
 [project]
 name = "francis-suite"
 version = "0.1.0"
-description = "Modern web scraping framework inspired by WebHarvest, built in Python"
+description = "Low-code web scraping framework for Python. XML-configured, plugin-based, modern stack."
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

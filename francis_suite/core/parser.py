@@ -92,6 +92,8 @@ class FParser:
         )
 
         for child in element:
+            if callable(child.tag):  # Ignore Comments and Processing Instructions
+                continue
             child_node = self._element_to_fnode(child)
             node.children.append(child_node)
 

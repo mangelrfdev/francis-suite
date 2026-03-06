@@ -50,7 +50,7 @@ class EvaluateHand(AbstractHand):
     """
 
     def execute(self) -> FVariable:
-        expression = self.get_body_text().strip()
+        expression = self.resolve_body_text().strip()
 
         if not expression:
             return FEmptyVariable()

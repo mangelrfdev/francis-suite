@@ -50,12 +50,11 @@ class XPathExtractHand(AbstractHand):
     def execute(self) -> FVariable:
         expression = self.require_attr("expression")
 
-        # Get XML content from children or body text
         if self.has_children():
             result = self.execute_children()
             xml_content = result.to_string()
         else:
-            xml_content = self.get_body_text()
+            xml_content = self.resolve_body_text()
 
         if not xml_content.strip():
             return FEmptyVariable()

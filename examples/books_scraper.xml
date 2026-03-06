@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<francis-workflow>
+
+    <box-def name="html">
+        <httpx-call url="http://books.toscrape.com"/>
+    </box-def>
+
+    <box-def name="xml">
+        <convert-html-to-xml>${html}</convert-html-to-xml>
+    </box-def>
+
+    <box-def name="titulos">
+        <xpath-extract expression="//h3/a/@title">${xml}</xpath-extract>
+    </box-def>
+
+    <box-def name="precios">
+        <xpath-extract expression="//p[@class='price_color']/text()">${xml}</xpath-extract>
+    </box-def>
+
+    <file-write path="output/libros.txt">
+        Titulos: ${titulos}
+        Precios: ${precios}
+    </file-write>
+
+    <log>Scraping completado — ver output/libros.txt</log>
+
+</francis-workflow>

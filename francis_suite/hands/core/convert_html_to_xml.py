@@ -41,12 +41,11 @@ class ConvertHtmlToXmlHand(AbstractHand):
     """
 
     def execute(self) -> FVariable:
-        # Get HTML from children or body text
         if self.has_children():
             result = self.execute_children()
             raw_html = result.to_string()
         else:
-            raw_html = self.get_body_text()
+            raw_html = self.resolve_body_text()
 
         if not raw_html.strip():
             return FEmptyVariable()

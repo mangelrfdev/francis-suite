@@ -13,7 +13,7 @@ qué hacer, y Francis Suite lo ejecuta.
 ```xml
 <francis-workflow>
     <box-def var="pagina">
-        <http-call url="https://ejemplo.com"/>
+        <httpx-call url="https://ejemplo.com"/>
     </box-def>
     <log>${pagina}</log>
 </francis-workflow>

@@ -44,7 +44,11 @@ class LogHand(AbstractHand):
                 f"Valid options: {', '.join(VALID_LEVELS)}"
             )
 
-        message = self.get_body_text()
+        if self.has_children():
+            message = self.execute_children().to_string()
+        else:
+            message = self.resolve_body_text()
+
         self._print(level, message)
         return FNodeVariable(message)
 

@@ -53,7 +53,7 @@ class TextSplitHand(AbstractHand):
         if self.has_children():
             text = self.execute_children().to_string()
         else:
-            text = self.get_body_text()
+            text = self.resolve_body_text()
 
         if not text.strip():
             return FEmptyVariable()

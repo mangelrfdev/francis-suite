@@ -50,7 +50,7 @@ class FileWriteHand(AbstractHand):
         if self.has_children():
             content = self.execute_children().to_string()
         else:
-            content = self.get_body_text()
+            content = self.resolve_body_text()
 
         path = Path(path_str)
 

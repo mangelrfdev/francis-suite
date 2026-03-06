@@ -59,22 +59,25 @@ class RegexHand(AbstractHand):
         if input_node is None:
             raise ValueError("<regex> requires a <regex-input> child tag.")
 
+        from francis_suite.core.expressions import FrancisExpression
+        engine = FrancisExpression(self.context)
+
         if pattern_node.has_children():
             pattern = self.execute_child(pattern_node).to_string()
         else:
-            pattern = pattern_node.text or ""
+            pattern = engine.resolve(pattern_node.text or "")
 
         if input_node.has_children():
             source = self.execute_child(input_node).to_string()
         else:
-            source = input_node.text or ""
+            source = engine.resolve(input_node.text or "")
 
         results_template = None
         if results_node is not None:
             if results_node.has_children():
                 results_template = self.execute_child(results_node).to_string()
             else:
-                results_template = results_node.text or ""
+                results_template = engine.resolve(results_node.text or "")
 
         if not source.strip():
             return FEmptyVariable()

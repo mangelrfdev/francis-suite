@@ -100,6 +100,22 @@ class AbstractHand(ABC):
         """
         return self._node.text or ""
 
+    def resolve_body_text(self) -> str:
+        """
+        Get the text content of this node with variables resolved.
+        Use this instead of get_body_text() when the body may contain ${variables}.
+
+        Example:
+            <log>${nombre}</log>
+            resolve_body_text() → "Francis"
+        """
+        from francis_suite.core.expressions import FrancisExpression
+        raw = self.get_body_text()
+        if not raw:
+            return ""
+        engine = FrancisExpression(self.context)
+        return engine.resolve(raw)
+
     def has_children(self) -> bool:
         """Return True if this node has child elements."""
         return self._node.has_children()

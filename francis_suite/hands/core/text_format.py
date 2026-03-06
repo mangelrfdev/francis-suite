@@ -36,11 +36,9 @@ class TextFormatHand(AbstractHand):
         if self.has_children():
             template = self.execute_children().to_string()
         else:
-            template = self.get_body_text()
+            template = self.resolve_body_text()
 
         if not template:
             return FEmptyVariable()
 
-        engine = FrancisExpression(self.context)
-        result = engine.resolve(template)
-        return FNodeVariable(result)
+        return FNodeVariable(template)

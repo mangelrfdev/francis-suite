@@ -1,27 +1,44 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <francis-workflow>
 
+    <!-- 1. Fetch página principal -->
     <box-def name="html">
         <httpx-call url="http://books.toscrape.com"/>
     </box-def>
 
+    <!-- 2. Convertir a XML -->
     <box-def name="xml">
         <convert-html-to-xml>${html}</convert-html-to-xml>
     </box-def>
 
-    <box-def name="titulos">
-        <xpath-extract expression="//h3/a/@title">${xml}</xpath-extract>
+    <!-- 3. Extraer todos los libros como nodos -->
+    <box-def name="libros">
+        <xpath-extract expression="//article[@class='product_pod']">${xml}</xpath-extract>
     </box-def>
 
-    <box-def name="precios">
-        <xpath-extract expression="//p[@class='price_color']/text()">${xml}</xpath-extract>
-    </box-def>
+    <!-- 4. Iterar sobre cada libro -->
+    <loop item="libro" index="i">
+        <loop-list>
+            <box name="libros"/>
+        </loop-list>
+        <loop-body>
+            <log>RAW: ${libro}</log>
 
-    <file-write path="output/libros.txt">
-        Titulos: ${titulos}
-        Precios: ${precios}
-    </file-write>
+            <!-- Extraer título -->
+            <box-def name="titulo">
+                <xpath-extract expression=".//h3/a/@title">${libro}</xpath-extract>
+            </box-def>
 
-    <log>Scraping completado — ver output/libros.txt</log>
+            <!-- Extraer precio -->
+            <box-def name="precio">
+                <xpath-extract expression=".//p[@class='price_color']/text()">${libro}</xpath-extract>
+            </box-def>
+
+            <log>Libro ${i}: ${titulo} — ${precio}</log>
+
+        </loop-body>
+    </loop>
+
+    <log>Scraping completado!</log>
 
 </francis-workflow>

@@ -71,7 +71,7 @@ class LoopHand(AbstractHand):
             raise ValueError("<loop> requires a <loop-body> child tag.")
 
         # Resolve the list
-        list_var = self.execute_child(list_node)
+        list_var = self._runtime._execute_children(list_node, self._session)
 
         if list_var.is_empty():
             return FEmptyVariable()
@@ -86,6 +86,6 @@ class LoopHand(AbstractHand):
                 self.context.set(item_name, item)
                 if index_name:
                     self.context.set(index_name, FNodeVariable(str(i)))
-                self.execute_child(body_node)
+                self._runtime._execute_children(body_node, self._session)
 
         return FEmptyVariable()

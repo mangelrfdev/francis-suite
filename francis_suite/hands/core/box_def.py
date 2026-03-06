@@ -6,7 +6,7 @@ Executes its children and stores the result in a context variable.
 
 Usage in XML:
     <box-def name="pagina">
-        <http-call url="https://ejemplo.com"/>
+        <httpx-call url="https://ejemplo.com"/>
     </box-def>
 
     <log>${pagina}</log>
@@ -31,7 +31,7 @@ class BoxDefHand(AbstractHand):
 
     Example:
         <box-def name="titulo">
-            <http-call url="https://ejemplo.com"/>
+            <httpx-call url="https://ejemplo.com"/>
         </box-def>
     """
 

@@ -120,12 +120,12 @@ def test_empty_returns_empty_variable():
     assert session.status == SessionStatus.COMPLETED
     assert session.context.get("nada").is_empty()
 
-def test_http_call_fetches_url():
-    """http-call should fetch a URL and return the response body."""
+def test_httpx_call_fetches_url():
+    """httpx-call should fetch a URL and return the response body."""
     xml = """
     <francis-workflow>
         <box-def name="page">
-            <http-call url="https://example.com"/>
+            <httpx-call url="https://example.com"/>
         </box-def>
     </francis-workflow>
     """
@@ -139,7 +139,7 @@ def test_http_call_fetches_url():
         runtime = FRuntime()
 
         root = parser.parse_string(xml)
-        session = runtime.run(root, workflow_name="test-http-call")
+        session = runtime.run(root, workflow_name="test-httpx-call")
 
     assert session.status == SessionStatus.COMPLETED
     result = session.context.get("page")

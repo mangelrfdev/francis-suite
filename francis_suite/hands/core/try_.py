@@ -6,7 +6,7 @@ Executes children and catches errors via a nested <catch> tag.
 
 Usage in XML:
     <try>
-        <http-call url="https://example.com"/>
+        <httpx-call url="https://example.com"/>
         <catch>
             <log>Something went wrong</log>
         </catch>
@@ -33,7 +33,7 @@ class TryHand(AbstractHand):
 
     Example:
         <try>
-            <http-call url="https://example.com"/>
+            <httpx-call url="https://example.com"/>
             <catch>
                 <log>Request failed</log>
             </catch>

@@ -7,7 +7,7 @@ It must be registered so the parser does not reject it as unknown.
 
 Usage in XML:
     <try>
-        <http-call url="https://example.com"/>
+        <httpx-call url="https://example.com"/>
         <catch>
             <log>Something went wrong</log>
         </catch>

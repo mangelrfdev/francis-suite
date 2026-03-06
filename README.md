@@ -59,7 +59,7 @@ examples/
 | `<box>` | Retrieve a variable from context |
 | `<sleep>` | Pause execution for N seconds |
 | `<empty>` | Return an empty variable |
-| `<http-call>` | Make HTTP requests |
+| `<httpx-call>` | Make HTTPX requests |
 | `<convert-html-to-xml>` | Convert HTML to clean XML |
 | `<xpath-extract>` | Apply XPath expressions to XML |
 | `<loop>` | Iterate over a list |

@@ -9,7 +9,7 @@ Usage in XML:
         <xpath-extract expression="//h1/text()">
             <box-def var="xml-page">
                 <convert-html-to-xml>
-                    <http-call url="https://example.com"/>
+                    <httpx-call url="https://example.com"/>
                 </convert-html-to-xml>
             </box-def>
         </xpath-extract>

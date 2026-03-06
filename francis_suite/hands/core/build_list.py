@@ -14,7 +14,7 @@ Usage in XML:
     </box-def>
 
     <loop item="url" list="${urls}">
-        <http-call url="${url}"/>
+        <httpx-call url="${url}"/>
     </loop>
 """
 

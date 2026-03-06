@@ -1,15 +1,15 @@
 """
-hands/core/http_call.py
+hands/core/httpx_call.py
 
-HttpCallHand implements the <http-call> tag.
+HttpCallHand implements the <httpx-call> tag.
 Makes an HTTP request and returns the response body.
 
 Usage in XML:
-    <http-call url="https://example.com"/>
-    <http-call url="https://example.com" method="POST">
-        <http-header name="Authorization">Bearer token</http-header>
-        <http-param name="q">search term</http-param>
-    </http-call>
+    <httpx-call url="https://example.com"/>
+    <httpx-call url="https://example.com" method="POST">
+        <httpx-header name="Authorization">Bearer token</httpx-header>
+        <httpx-param name="q">search term</httpx-param>
+    </httpx-call>
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from francis_suite.hands.base import AbstractHand
 VALID_METHODS = ("GET", "POST", "PUT", "DELETE", "PATCH", "HEAD")
 
 
-@hand(tag="http-call")
+@hand(tag="httpx-call")
 class HttpCallHand(AbstractHand):
     """
     Makes an HTTP request and returns the response body.
@@ -34,15 +34,15 @@ class HttpCallHand(AbstractHand):
         charset (optional): response encoding. Default: auto-detect.
 
     Child tags:
-        <http-header name="...">value</http-header>
-        <http-param name="...">value</http-param>
+        <httpx-header name="...">value</httpx-header>
+        <httpx-param name="...">value</httpx-param>
 
     Returns:
         FNodeVariable with the response body as string.
 
     Example:
         <box-def var="page">
-            <http-call url="https://example.com"/>
+            <httpx-call url="https://example.com"/>
         </box-def>
     """
 
@@ -53,7 +53,7 @@ class HttpCallHand(AbstractHand):
 
         if method not in VALID_METHODS:
             raise ValueError(
-                f"<http-call> invalid method '{method}'. "
+                f"<httpx-call> invalid method '{method}'. "
                 f"Valid options: {', '.join(VALID_METHODS)}"
             )
 
@@ -73,18 +73,18 @@ class HttpCallHand(AbstractHand):
         return FNodeVariable(response.text)
 
     def _extract_children(self) -> tuple[dict, dict]:
-        """Extract http-header and http-param child nodes."""
+        """Extract httpx-header and httpx-param child nodes."""
         headers: dict[str, str] = {}
         params:  dict[str, str] = {}
 
         for child in self._node.children:
-            if child.tag == "http-header":
+            if child.tag == "httpx-header":
                 name = child.get_attr("name", "")
                 value = child.text or ""
                 if name:
                     headers[name] = value
 
-            elif child.tag == "http-param":
+            elif child.tag == "httpx-param":
                 name = child.get_attr("name", "")
                 value = child.text or ""
                 if name:

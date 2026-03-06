@@ -27,6 +27,7 @@ class WhileHand(AbstractHand):
 
     Attributes:
         condition (required): expression evaluated before each iteration.
+        max-loops (optional): maximum number of iterations. Default: 10_000.
 
     Returns:
         FEmptyVariable — while produces no direct output.
@@ -34,13 +35,16 @@ class WhileHand(AbstractHand):
 
     def execute(self) -> FVariable:
         condition = self.require_attr("condition")
+        max_loops = self.attr("max-loops", None)
+        max_loops = int(max_loops) if max_loops is not None else MAX_ITERATIONS
+
         engine = FrancisExpression(self.context)
         iterations = 0
 
         while self._evaluate(condition, engine):
-            if iterations >= MAX_ITERATIONS:
+            if iterations >= max_loops:
                 raise RuntimeError(
-                    f"<while> exceeded maximum iterations ({MAX_ITERATIONS}). "
+                    f"<while> exceeded maximum iterations ({max_loops}). "
                     f"Possible infinite loop detected."
                 )
             with self.context.new_scope():

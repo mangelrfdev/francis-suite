@@ -22,8 +22,6 @@
             <box name="libros"/>
         </loop-list>
         <loop-body>
-            <log>RAW: ${libro}</log>
-
             <!-- Extraer título -->
             <box-def name="titulo">
                 <xpath-extract expression=".//h3/a/@title">${libro}</xpath-extract>

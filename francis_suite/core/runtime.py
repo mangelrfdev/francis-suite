@@ -27,6 +27,15 @@ from francis_suite.hands.core.exit_ import ExitWorkflow
 import francis_suite.hands  # noqa: F401
 
 
+# Internal child tags — never executed directly by the runtime
+_INTERNAL_TAGS = {
+    "loop-list", "loop-body",
+    "regex-pattern", "regex-input", "regex-results",
+    "httpx-header", "httpx-param",
+    "function-param",
+}
+
+
 class FRuntime:
     """
     Executes a parsed workflow (FNode tree).
@@ -98,6 +107,10 @@ class FRuntime:
         Execute a single FNode as a hand.
         Emits HandStarted and HandCompleted/HandFailed events.
         """
+        # Internal child tags are never executed directly
+        if node.tag in _INTERNAL_TAGS:
+            return FEmptyVariable()
+
         self._bus.emit(HandStartedEvent(
             session_id=session.id,
             tag=node.tag,

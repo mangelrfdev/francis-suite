@@ -196,11 +196,20 @@ def test_loop_iterates_over_list():
     """loop should iterate over a list and execute children for each item."""
     xml = """
     <francis-workflow>
-        <box-def name="items">
-            <empty/>
+        <box-def name="frutas">
+            <build-list>
+                <log>manzana</log>
+                <log>pera</log>
+                <log>uva</log>
+            </build-list>
         </box-def>
-        <loop item="current" list="${items}">
-            <log>${current}</log>
+        <loop item="fruta" index="i" max-loops="10">
+            <loop-list>
+                <box name="frutas"/>
+            </loop-list>
+            <loop-body>
+                <log>Fruta ${i}: ${fruta}</log>
+            </loop-body>
         </loop>
     </francis-workflow>
     """
@@ -209,11 +218,7 @@ def test_loop_iterates_over_list():
     runtime = FRuntime()
 
     root = parser.parse_string(xml)
-
-    # Manually set a list variable in context before running
-    from francis_suite.core.variables import FListVariable, FNodeVariable
     session = runtime.run(root, workflow_name="test-loop")
-
     assert session.status == SessionStatus.COMPLETED
 
 def test_if_executes_when_true():

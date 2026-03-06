@@ -13,6 +13,8 @@ from francis_suite.hands.core import httpx_call
 from francis_suite.hands.core import convert_html_to_xml
 from francis_suite.hands.core import xpath_extract
 from francis_suite.hands.core import loop
+from francis_suite.hands.core import loop_list
+from francis_suite.hands.core import loop_body
 from francis_suite.hands.core import case_
 from francis_suite.hands.core import if_
 from francis_suite.hands.core import else_

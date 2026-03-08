@@ -31,11 +31,24 @@ francis-suite run examples/books_scraper.xml
         <convert-html-to-xml>${html}</convert-html-to-xml>
     </box-def>
 
-    <box-def name="titulos">
-        <xpath-extract expression="//h3/a/@title">${xml}</xpath-extract>
+    <box-def name="libros">
+        <xpath-extract expression="//article[@class='product_pod']">${xml}</xpath-extract>
     </box-def>
 
-    <file-write path="output/libros.txt">${titulos}</file-write>
+    <loop item="libro" index="i">
+        <loop-list>
+            <box name="libros"/>
+        </loop-list>
+        <loop-body>
+            <box-def name="titulo">
+                <xpath-extract expression=".//h3/a/@title">${libro}</xpath-extract>
+            </box-def>
+            <box-def name="precio">
+                <xpath-extract expression=".//p[@class='price_color']/text()">${libro}</xpath-extract>
+            </box-def>
+            <log>Libro ${i}: ${titulo} — ${precio}</log>
+        </loop-body>
+    </loop>
 
     <log>Scraping completado</log>
 
@@ -111,7 +124,7 @@ examples/
 | `<httpx-call>` | Make HTTP requests via httpx |
 | `<convert-html-to-xml>` | Convert HTML to clean XML |
 | `<xpath-extract>` | Apply XPath expressions to XML |
-| `<loop>` | Iterate over a list |
+| `<loop>` | Iterate over a list — requires `<loop-list>` and `<loop-body>` |
 | `<if>` | Conditional execution |
 | `<else>` | Else branch for if |
 | `<case>` | Switch-case pattern |
@@ -145,10 +158,43 @@ Francis Suite has a built-in expression engine (`FrancisExpression`) that suppor
 - Comparisons: `${edad} > 18`
 - Logical operators: `${activo} and !${vacio}`
 - Method calls: `${nombre.isEmpty()}`, `${texto.toUpperCase()}`
+- Boolean conditions: `${flag.toBoolean()}`
 
 Available string methods: `isEmpty()`, `isNotEmpty()`, `toUpperCase()`, `toLowerCase()`,
 `trim()`, `length()`, `contains(x)`, `startsWith(x)`, `endsWith(x)`, `replace(x, y)`,
-`toInt()`, `toFloat()`
+`toInt()`, `toFloat()`, `toBoolean()`
+
+## Loop
+```xml
+<loop item="producto" index="i" max-loops="50">
+    <loop-list>
+        <box name="productos"/>
+    </loop-list>
+    <loop-body>
+        <log>Producto ${i}: ${producto}</log>
+    </loop-body>
+</loop>
+```
+
+- `item` — required — variable name for current item
+- `index` — optional — counter starting at 1
+- `max-loops` — optional — maximum iterations
+- `loop-list` — required — defines the list to iterate
+- `loop-body` — required — defines the logic per iteration
+
+## Regex
+```xml
+<box-def name="anio">
+    <regex>
+        <regex-pattern>(\d{4})-(\d{2})-(\d{2})</regex-pattern>
+        <regex-input>${fecha}</regex-input>
+        <regex-result>${_1}</regex-result>
+    </regex>
+</box-def>
+```
+
+- `${_0}` — full match
+- `${_1}`, `${_2}`, `${_3}` — capture groups
 
 ## Nomenclature
 

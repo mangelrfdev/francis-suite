@@ -26,6 +26,7 @@ from francis_suite.core.variables import (
     FEmptyVariable,
 )
 from francis_suite.hands.base import AbstractHand
+from francis_suite.core.expressions import FrancisExpression
 
 
 @hand(tag="xpath-extract")
@@ -48,7 +49,8 @@ class XPathExtractHand(AbstractHand):
     """
 
     def execute(self) -> FVariable:
-        expression = self.require_attr("expression")
+        engine = FrancisExpression(self.context)
+        expression = engine.resolve(self.require_attr("expression"))
 
         if self.has_children():
             result = self.execute_children()

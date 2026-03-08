@@ -6,7 +6,7 @@ Makes an HTTP request and returns the response body.
 
 Usage in XML:
     <httpx-call url="https://example.com"/>
-    <httpx-call url="https://example.com" method="POST">
+    <httpx-call url="https://example.com" method="POST" timeout="30000">
         <httpx-header name="Authorization">Bearer token</httpx-header>
         <httpx-param name="q">search term</httpx-param>
     </httpx-call>
@@ -14,6 +14,7 @@ Usage in XML:
 
 from __future__ import annotations
 import httpx
+from francis_suite.core.expressions import FrancisExpression
 from francis_suite.core.registry import hand
 from francis_suite.core.variables import FVariable, FNodeVariable
 from francis_suite.hands.base import AbstractHand
@@ -30,7 +31,7 @@ class HttpCallHand(AbstractHand):
     Attributes:
         url (required): the URL to request.
         method (optional): HTTP method. Default: GET.
-        timeout (optional): seconds before timeout. Default: 30.
+        timeout (optional): timeout in milliseconds. Default: 30000.
         charset (optional): response encoding. Default: auto-detect.
 
     Child tags:
@@ -41,15 +42,16 @@ class HttpCallHand(AbstractHand):
         FNodeVariable with the response body as string.
 
     Example:
-        <box-def var="page">
-            <httpx-call url="https://example.com"/>
+        <box-def name="page">
+            <httpx-call url="https://example.com" timeout="10000"/>
         </box-def>
     """
 
     def execute(self) -> FVariable:
-        url     = self.require_attr("url")
-        method  = self.attr("method", "GET").upper()
-        timeout = float(self.attr("timeout", "30"))
+        engine  = FrancisExpression(self.context)
+        url     = engine.resolve(self.require_attr("url"))
+        method  = engine.resolve(self.attr("method", "GET")).upper()
+        timeout = float(engine.resolve(self.attr("timeout", "30000"))) / 1000
 
         if method not in VALID_METHODS:
             raise ValueError(
@@ -74,19 +76,20 @@ class HttpCallHand(AbstractHand):
 
     def _extract_children(self) -> tuple[dict, dict]:
         """Extract httpx-header and httpx-param child nodes."""
+        engine  = FrancisExpression(self.context)
         headers: dict[str, str] = {}
         params:  dict[str, str] = {}
 
         for child in self._node.children:
             if child.tag == "httpx-header":
-                name = child.get_attr("name", "")
-                value = child.text or ""
+                name  = child.get_attr("name", "")
+                value = engine.resolve(child.text or "")
                 if name:
                     headers[name] = value
 
             elif child.tag == "httpx-param":
-                name = child.get_attr("name", "")
-                value = child.text or ""
+                name  = child.get_attr("name", "")
+                value = engine.resolve(child.text or "")
                 if name:
                     params[name] = value
 

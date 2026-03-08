@@ -21,6 +21,7 @@ from pathlib import Path
 from francis_suite.core.registry import hand
 from francis_suite.core.variables import FVariable
 from francis_suite.hands.base import AbstractHand
+from francis_suite.core.expressions import FrancisExpression
 
 
 @hand(tag="call-workflow")
@@ -44,7 +45,8 @@ class WorkflowCallHand(AbstractHand):
     """
 
     def execute(self) -> FVariable:
-        path_str = self.require_attr("path")
+        engine = FrancisExpression(self.context)
+        path_str = engine.resolve(self.require_attr("path"))
         path = Path(path_str)
 
         if not path.exists():

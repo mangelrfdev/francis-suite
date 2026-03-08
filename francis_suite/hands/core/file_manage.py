@@ -20,6 +20,7 @@ from pathlib import Path
 from francis_suite.core.registry import hand
 from francis_suite.core.variables import FVariable, FNodeVariable, FListVariable, FEmptyVariable
 from francis_suite.hands.base import AbstractHand
+from francis_suite.core.expressions import FrancisExpression
 
 
 @hand(tag="file-manage")
@@ -44,8 +45,9 @@ class FileManageHand(AbstractHand):
     """
 
     def execute(self) -> FVariable:
-        action = self.require_attr("action").lower()
-        path_str = self.require_attr("path")
+        engine = FrancisExpression(self.context)
+        action = engine.resolve(self.require_attr("action")).lower()
+        path_str = engine.resolve(self.require_attr("path"))
         path = Path(path_str)
 
         if action == "delete":
@@ -72,18 +74,22 @@ class FileManageHand(AbstractHand):
         return FEmptyVariable()
 
     def _move(self, path: Path) -> FVariable:
-        dest_str = self.require_attr("dest")
+        engine = FrancisExpression(self.context)
+        dest_str = engine.resolve(self.require_attr("dest"))
         dest = Path(dest_str)
-        mkdir = self.attr("mkdir", "true").lower() == "true"
+        mkdir = engine.resolve(self.attr("mkdir", "true")).lower() == "true"
+
         if mkdir:
             dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(path), str(dest))
         return FEmptyVariable()
 
     def _copy(self, path: Path) -> FVariable:
-        dest_str = self.require_attr("dest")
+        engine = FrancisExpression(self.context)
+        dest_str = engine.resolve(self.require_attr("dest"))
         dest = Path(dest_str)
-        mkdir = self.attr("mkdir", "true").lower() == "true"
+        mkdir = engine.resolve(self.attr("mkdir", "true")).lower() == "true"
+
         if mkdir:
             dest.parent.mkdir(parents=True, exist_ok=True)
         if path.is_dir():
@@ -93,8 +99,9 @@ class FileManageHand(AbstractHand):
         return FEmptyVariable()
 
     def _list(self, path: Path) -> FVariable:
-        pattern = self.attr("filter", "*")
-        recursive = self.attr("recursive", "false").lower() == "true"
+        engine = FrancisExpression(self.context)
+        pattern = engine.resolve(self.attr("filter", "*"))
+        recursive = engine.resolve(self.attr("recursive", "false")).lower() == "true"
 
         if not path.exists():
             raise FileNotFoundError(f"<file-manage list> cannot find: '{path}'")

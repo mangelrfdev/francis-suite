@@ -19,6 +19,7 @@ import httpx
 from francis_suite.core.registry import hand
 from francis_suite.core.variables import FVariable, FNodeVariable, FEmptyVariable
 from francis_suite.hands.base import AbstractHand
+from francis_suite.core.expressions import FrancisExpression
 
 
 @hand(tag="file-download")
@@ -40,10 +41,11 @@ class FileDownloadHand(AbstractHand):
     """
 
     def execute(self) -> FVariable:
-        url = self.require_attr("url")
-        path_str = self.require_attr("path")
-        mkdir = self.attr("mkdir", "true").lower() == "true"
-        timeout = float(self.attr("timeout", "30"))
+        engine = FrancisExpression(self.context)
+        url = engine.resolve(self.require_attr("url"))
+        path_str = engine.resolve(self.require_attr("path"))
+        mkdir = engine.resolve(self.attr("mkdir", "true")).lower() == "true"
+        timeout = float(engine.resolve(self.attr("timeout", "30000"))) / 1000
 
         path = Path(path_str)
 

@@ -19,6 +19,7 @@ from pathlib import Path
 from francis_suite.core.registry import hand
 from francis_suite.core.variables import FVariable, FEmptyVariable
 from francis_suite.hands.base import AbstractHand
+from francis_suite.core.expressions import FrancisExpression
 
 
 @hand(tag="file-write")
@@ -42,10 +43,11 @@ class FileWriteHand(AbstractHand):
     """
 
     def execute(self) -> FVariable:
-        path_str = self.require_attr("path")
-        encoding = self.attr("encoding", "utf-8")
-        append = self.attr("append", "false").lower() == "true"
-        mkdir = self.attr("mkdir", "true").lower() == "true"
+        engine = FrancisExpression(self.context)
+        path_str = engine.resolve(self.require_attr("path"))
+        encoding = engine.resolve(self.attr("encoding", "utf-8"))
+        append = engine.resolve(self.attr("append", "false")).lower() == "true"
+        mkdir = engine.resolve(self.attr("mkdir", "true")).lower() == "true"
 
         if self.has_children():
             content = self.execute_children().to_string()

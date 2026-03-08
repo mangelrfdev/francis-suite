@@ -16,7 +16,7 @@ import xmltodict
 from francis_suite.core.registry import hand
 from francis_suite.core.variables import FVariable, FNodeVariable, FEmptyVariable
 from francis_suite.hands.base import AbstractHand
-
+from francis_suite.core.expressions import FrancisExpression
 
 @hand(tag="convert-json-to-xml")
 class ConvertJsonToXmlHand(AbstractHand):
@@ -35,7 +35,8 @@ class ConvertJsonToXmlHand(AbstractHand):
     """
 
     def execute(self) -> FVariable:
-        root_name = self.attr("root", "root")
+        engine = FrancisExpression(self.context)
+        root_name = engine.resolve(self.attr("root", "root"))
 
         if self.has_children():
             text = self.execute_children().to_string()

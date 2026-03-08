@@ -19,7 +19,6 @@ from francis_suite.core.registry import hand
 from francis_suite.core.variables import FVariable, FNodeVariable, FEmptyVariable
 from francis_suite.hands.base import AbstractHand
 
-
 @hand(tag="convert-html-to-xml")
 class ConvertHtmlToXmlHand(AbstractHand):
     """

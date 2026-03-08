@@ -46,8 +46,7 @@
                 <box-def name="precio">
                     <xpath-extract expression=".//p[@class='price_color']/text()">${libro}</xpath-extract>
                 </box-def>
-                <file-write path="output/todos_los_libros.txt" append="true">${titulo} | ${precio}
-</file-write>
+                <file-write path="output/todos_los_libros.txt" append="true">${titulo} | ${precio}</file-write>
             </loop-body>
         </loop>
 
@@ -64,9 +63,10 @@
             <box-def name="url_actual">
                 <text-format>${base_url}${next_href}</text-format>
             </box-def>
+            <log>Siguiente URL: ${url_actual}</log>
         </else>
 
-        <sleep seconds="1"/>
+        <sleep ms="1000"/>
     </while>
 
     <log>Scraping completado — ver output/todos_los_libros.txt</log>

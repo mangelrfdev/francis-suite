@@ -18,7 +18,7 @@ from __future__ import annotations
 from francis_suite.core.registry import hand
 from francis_suite.core.variables import FVariable, FEmptyVariable, FNodeVariable
 from francis_suite.hands.base import AbstractHand
-
+from francis_suite.core.expressions import FrancisExpression
 
 @hand(tag="function-call")
 class FunctionCallHand(AbstractHand):
@@ -37,7 +37,8 @@ class FunctionCallHand(AbstractHand):
     """
 
     def execute(self) -> FVariable:
-        name = self.require_attr("name")
+        engine = FrancisExpression(self.context)
+        name = engine.resolve(self.require_attr("name"))
 
         functions = getattr(self.session, "_functions", {})
         if name not in functions:

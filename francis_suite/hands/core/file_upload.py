@@ -20,6 +20,7 @@ import httpx
 from francis_suite.core.registry import hand
 from francis_suite.core.variables import FVariable, FNodeVariable, FEmptyVariable
 from francis_suite.hands.base import AbstractHand
+from francis_suite.core.expressions import FrancisExpression
 
 
 @hand(tag="file-upload")
@@ -42,11 +43,12 @@ class FileUploadHand(AbstractHand):
     """
 
     def execute(self) -> FVariable:
-        url = self.require_attr("url")
-        path_str = self.require_attr("path")
-        field = self.attr("field", "file")
-        method = self.attr("method", "POST").upper()
-        timeout = float(self.attr("timeout", "30"))
+        engine = FrancisExpression(self.context)
+        url = engine.resolve(self.require_attr("url"))
+        path_str = engine.resolve(self.require_attr("path"))
+        field = engine.resolve(self.attr("field", "file"))
+        method = engine.resolve(self.attr("method", "POST")).upper()
+        timeout = float(engine.resolve(self.attr("timeout", "30000"))) / 1000
 
         path = Path(path_str)
 

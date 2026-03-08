@@ -22,7 +22,7 @@ import random
 from francis_suite.core.registry import hand
 from francis_suite.core.variables import FVariable, FEmptyVariable
 from francis_suite.hands.base import AbstractHand
-
+from francis_suite.core.expressions import FrancisExpression
 
 @hand(tag="sleep")
 class SleepHand(AbstractHand):
@@ -53,6 +53,7 @@ class SleepHand(AbstractHand):
     """
 
     def execute(self) -> FVariable:
+        engine  = FrancisExpression(self.context)
         min_node = self._node.first_child_by_tag("sleep-min")
         max_node = self._node.first_child_by_tag("sleep-max")
         avg_node = self._node.first_child_by_tag("sleep-avg")
@@ -81,8 +82,7 @@ class SleepHand(AbstractHand):
             ms = self._random_gaussian(ms_min, ms_avg, ms_max)
 
         else:
-            # Fixed mode
-            raw = self.require_attr("ms")
+            raw = engine.resolve(self.require_attr("ms"))
             ms = self._parse_ms(raw, "ms")
 
         time.sleep(ms / 1000)

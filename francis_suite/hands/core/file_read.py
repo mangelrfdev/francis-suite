@@ -19,6 +19,8 @@ from pathlib import Path
 from francis_suite.core.registry import hand
 from francis_suite.core.variables import FVariable, FNodeVariable, FEmptyVariable
 from francis_suite.hands.base import AbstractHand
+from francis_suite.core.expressions import FrancisExpression
+
 
 
 @hand(tag="file-read")
@@ -39,8 +41,9 @@ class FileReadHand(AbstractHand):
     """
 
     def execute(self) -> FVariable:
-        path_str = self.require_attr("path")
-        encoding = self.attr("encoding", "utf-8")
+        engine = FrancisExpression(self.context)
+        path_str = engine.resolve(self.require_attr("path"))
+        encoding = engine.resolve(self.attr("encoding", "utf-8"))
         path = Path(path_str)
 
         if not path.exists():

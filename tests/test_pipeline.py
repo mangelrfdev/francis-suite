@@ -72,7 +72,7 @@ def test_sleep_executes():
     """sleep should pause execution and return empty."""
     xml = """
     <francis-workflow>
-        <sleep seconds="0"/>
+        <sleep ms="0"/>
     </francis-workflow>
     """
 
@@ -86,10 +86,10 @@ def test_sleep_executes():
 
 
 def test_sleep_invalid_seconds_fails():
-    """sleep with invalid seconds attribute should fail the session."""
+    """sleep with invalid ms attribute should fail the session."""
     xml = """
     <francis-workflow>
-        <sleep seconds="abc"/>
+        <sleep ms="abc"/>
     </francis-workflow>
     """
 
@@ -100,6 +100,27 @@ def test_sleep_invalid_seconds_fails():
     session = runtime.run(root, workflow_name="test-sleep-invalid")
 
     assert session.status == SessionStatus.FAILED
+
+
+def test_sleep_variable_mode():
+    """sleep with min/avg/max should execute without error."""
+    xml = """
+    <francis-workflow>
+        <sleep>
+            <sleep-min>0</sleep-min>
+            <sleep-avg>0</sleep-avg>
+            <sleep-max>10</sleep-max>
+        </sleep>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-sleep-variable")
+
+    assert session.status == SessionStatus.COMPLETED
 
 def test_empty_returns_empty_variable():
     """empty tag should return an empty variable."""

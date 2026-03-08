@@ -33,6 +33,7 @@ _INTERNAL_TAGS = {
     "regex-pattern", "regex-input", "regex-result",
     "httpx-header", "httpx-param",
     "function-param",
+    "sleep-min", "sleep-avg", "sleep-max",
 }
 
 

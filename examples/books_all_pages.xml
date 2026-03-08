@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<francis-workflow>
+
+    <!-- URL base -->
+    <box-def name="base_url">http://books.toscrape.com/catalogue/</box-def>
+    <box-def name="url_actual">http://books.toscrape.com/catalogue/page-1.html</box-def>
+    <box-def name="hay_siguiente">true</box-def>
+    <box-def name="pagina">0</box-def>
+
+    <!-- Crear archivo de salida -->
+    <file-write path="output/todos_los_libros.txt"></file-write>
+
+    <while condition="${hay_siguiente.toBoolean()}" max-loops="60">
+
+        <!-- Contador de página -->
+        <box-def name="pagina">
+            <evaluate>${pagina} + 1</evaluate>
+        </box-def>
+
+        <log>Scraping página ${pagina}: ${url_actual}</log>
+
+        <!-- 1. Fetch página -->
+        <box-def name="html">
+            <httpx-call url="${url_actual}"/>
+        </box-def>
+
+        <!-- 2. Convertir a XML -->
+        <box-def name="xml">
+            <convert-html-to-xml>${html}</convert-html-to-xml>
+        </box-def>
+
+        <!-- 3. Extraer libros -->
+        <box-def name="libros">
+            <xpath-extract expression="//article[@class='product_pod']">${xml}</xpath-extract>
+        </box-def>
+
+        <!-- 4. Iterar libros de esta página -->
+        <loop item="libro" index="i">
+            <loop-list>
+                <box name="libros"/>
+            </loop-list>
+            <loop-body>
+                <box-def name="titulo">
+                    <xpath-extract expression=".//h3/a/@title">${libro}</xpath-extract>
+                </box-def>
+                <box-def name="precio">
+                    <xpath-extract expression=".//p[@class='price_color']/text()">${libro}</xpath-extract>
+                </box-def>
+                <file-write path="output/todos_los_libros.txt" append="true">${titulo} | ${precio}
+</file-write>
+            </loop-body>
+        </loop>
+
+        <!-- 5. Buscar botón next -->
+        <box-def name="next_href">
+            <xpath-extract expression="//li[@class='next']/a/@href">${xml}</xpath-extract>
+        </box-def>
+
+        <!-- 6. Si hay next → actualizar URL, si no → parar -->
+        <if condition="${next_href.isEmpty()}">
+            <box-def name="hay_siguiente">false</box-def>
+        </if>
+        <else>
+            <box-def name="url_actual">
+                <text-format>${base_url}${next_href}</text-format>
+            </box-def>
+        </else>
+
+        <sleep seconds="1"/>
+    </while>
+
+    <log>Scraping completado — ver output/todos_los_libros.txt</log>
+
+</francis-workflow>

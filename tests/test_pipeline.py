@@ -472,7 +472,7 @@ def test_regex_with_groups_and_template():
             <regex>
                 <regex-pattern><![CDATA[(\d{3})-(\d{3})-(\d{4})]]></regex-pattern>
                 <regex-input>Llama al 555-123-4567</regex-input>
-                <regex-results>(${group1}) ${group2}-${group3}</regex-results>
+                <regex-result>(${_1}) ${_2}-${_3}</regex-result>
             </regex>
         </box-def>
     </francis-workflow>
@@ -533,7 +533,7 @@ def test_text_format_interpolates_variables():
     assert session.context.get("mensaje").to_string() == "Hola Francis!"
 
 def test_text_format_unknown_var_stays():
-    """text-format should leave unknown ${var} expressions as-is."""
+    """text-format should return empty string for unknown variables."""
     xml = """
     <francis-workflow>
         <box-def name="resultado">
@@ -549,7 +549,7 @@ def test_text_format_unknown_var_stays():
     session = runtime.run(root, workflow_name="test-text-format-unknown")
 
     assert session.status == SessionStatus.COMPLETED
-    assert session.context.get("resultado").to_string() == "Valor: ${no-existe}"
+    assert session.context.get("resultado").to_string() == "Valor: "
 
 def test_text_split_splits_by_delimiter():
     """text-split should split text by delimiter and return a list."""

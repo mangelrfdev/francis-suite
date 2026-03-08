@@ -30,7 +30,7 @@ import francis_suite.hands  # noqa: F401
 # Internal child tags — never executed directly by the runtime
 _INTERNAL_TAGS = {
     "loop-list", "loop-body",
-    "regex-pattern", "regex-input", "regex-results",
+    "regex-pattern", "regex-input", "regex-result",
     "httpx-header", "httpx-param",
     "function-param",
 }

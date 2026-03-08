@@ -76,6 +76,12 @@ class FrancisString(str):
 
     def toFloat(self) -> float:
         return float(self.strip())
+    
+    def toFloat(self) -> float:
+        return float(self.strip())
+
+    def toBoolean(self) -> bool:
+        return self.strip().lower() == "true"
 
 
 class FrancisExpression:
@@ -163,7 +169,7 @@ class FrancisExpression:
         """Get a variable value from context, converted to appropriate type."""
         var = self._context.get(name)
         if var.is_empty():
-            raise NameNotDefined(name, name)
+            return FrancisString("")  # vacío = string vacío, no error
         value = var.to_string()
 
         try:

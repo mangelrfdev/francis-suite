@@ -1,0 +1,11 @@
+<francis-workflow>
+    <box-def name="hay_siguiente">false</box-def>
+    <log>${hay_siguiente}</log>
+
+    <box-def name="vacio">alo</box-def>
+    <log>vacio: ${vacio}</log>
+
+    <if condition="!${hay_siguiente.toBoolean()}">
+        <log>ES FALSE!</log>
+    </if>
+</francis-workflow>

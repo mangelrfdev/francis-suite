@@ -3,13 +3,13 @@ hands/core/regex.py
 
 RegexHand implements the <regex> tag.
 Applies a regular expression to a text using child tags
-regex-pattern, regex-input, and regex-results.
+regex-pattern, regex-input, and regex-result.
 
 Usage in XML:
     <regex>
         <regex-pattern><![CDATA[(\d+)\.(\d{2})]]></regex-pattern>
         <regex-input>El precio es 19.99 euros</regex-input>
-        <regex-results>${group1}.${group2}</regex-results>
+        <regex-result>${_1}.${_2}</regex-result>
     </regex>
 """
 
@@ -33,11 +33,11 @@ class RegexHand(AbstractHand):
     Child tags:
         <regex-pattern> — the regular expression pattern (required)
         <regex-input>   — the text to search in (required)
-        <regex-results> — output template with ${group0}, ${group1}, etc. (optional)
+        <regex-result>  — output template with ${_0}, ${_1}, etc. (optional)
 
     Returns:
-        FNodeVariable with formatted result if regex-results is defined.
-        FNodeVariable with full match if no regex-results.
+        FNodeVariable with formatted result if regex-result is defined.
+        FNodeVariable with full match if no regex-result.
         FListVariable if multiple matches found.
         FEmptyVariable if no match found.
 
@@ -45,14 +45,14 @@ class RegexHand(AbstractHand):
         <regex>
             <regex-pattern><![CDATA[(\d+)]]></regex-pattern>
             <regex-input>Hay 42 productos</regex-input>
-            <regex-results>${group1}</regex-results>
+            <regex-result>${_1}</regex-result>
         </regex>
     """
 
     def execute(self) -> FVariable:
         pattern_node = self._node.first_child_by_tag("regex-pattern")
         input_node   = self._node.first_child_by_tag("regex-input")
-        results_node = self._node.first_child_by_tag("regex-results")
+        result_node  = self._node.first_child_by_tag("regex-result")
 
         if pattern_node is None:
             raise ValueError("<regex> requires a <regex-pattern> child tag.")
@@ -72,12 +72,13 @@ class RegexHand(AbstractHand):
         else:
             source = engine.resolve(input_node.text or "")
 
-        results_template = None
-        if results_node is not None:
-            if results_node.has_children():
-                results_template = self.execute_child(results_node).to_string()
+        # Template is kept raw — ${_1} etc. are replaced by _apply_template
+        result_template = None
+        if result_node is not None:
+            if result_node.has_children():
+                result_template = self.execute_child(result_node).to_string()
             else:
-                results_template = engine.resolve(results_node.text or "")
+                result_template = result_node.text or ""
 
         if not source.strip():
             return FEmptyVariable()
@@ -94,10 +95,10 @@ class RegexHand(AbstractHand):
         if not matches:
             return FEmptyVariable()
 
-        if results_template:
+        if result_template:
             results = []
             for match in matches:
-                result = self._apply_template(results_template, match)
+                result = self._apply_template(result_template, match)
                 results.append(FNodeVariable(result))
             if len(results) == 1:
                 return results[0]
@@ -108,9 +109,9 @@ class RegexHand(AbstractHand):
             return FListVariable([FNodeVariable(m.group(0)) for m in matches])
 
     def _apply_template(self, template: str, match: re.Match) -> str:
-        """Replace ${group0}, ${group1}, etc. with match groups."""
+        """Replace ${_0}, ${_1}, ${_2}, etc. with match groups."""
         result = template
-        result = result.replace("${group0}", match.group(0))
+        result = result.replace("${_0}", match.group(0))
         for i, group in enumerate(match.groups(), start=1):
-            result = result.replace(f"${{group{i}}}", group or "")
+            result = result.replace(f"${{_{i}}}", group or "")
         return result

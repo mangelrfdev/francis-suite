@@ -17,7 +17,6 @@ from francis_suite.core.registry import hand
 from francis_suite.core.variables import FVariable, FEmptyVariable
 from francis_suite.hands.base import AbstractHand
 
-
 @hand(tag="box-def")
 class BoxDefHand(AbstractHand):
     """
@@ -41,7 +40,12 @@ class BoxDefHand(AbstractHand):
         if self.has_children():
             result = self.execute_children()
         else:
-            result = FEmptyVariable()
+            text = self.resolve_body_text()
+            if text.strip():
+                from francis_suite.core.variables import FNodeVariable
+                result = FNodeVariable(text)
+            else:
+                result = FEmptyVariable()
 
         self.context.set(var_name, result)
         return result

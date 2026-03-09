@@ -20,7 +20,6 @@ from francis_suite.core.registry import hand
 from francis_suite.core.variables import (
     FVariable,
     FNodeVariable,
-    FListVariable,
     FEmptyVariable,
 )
 from francis_suite.hands.base import AbstractHand
@@ -42,6 +41,11 @@ class LoopHand(AbstractHand):
 
     Returns:
         FEmptyVariable — loop produces no direct output.
+
+    Notes:
+        - item and index are set in the global context and updated each iteration.
+        - box-def variables defined inside loop-body persist in the global context.
+        - Variables are only updated when explicitly touched — if not touched, they keep their value.
 
     Example:
         <loop item="producto" index="i" max-loops="10">
@@ -82,10 +86,12 @@ class LoopHand(AbstractHand):
             if max_loops is not None and i > max_loops:
                 break
 
-            with self.context.new_scope():
-                self.context.set(item_name, item)
-                if index_name:
-                    self.context.set(index_name, FNodeVariable(str(i)))
-                self._runtime._execute_children(body_node, self._session)
+            # item e index se actualizan en el contexto global cada iteración
+            self.context.set(item_name, item)
+            if index_name:
+                self.context.set(index_name, FNodeVariable(str(i)))
+
+            # ejecutar el body — las box-def adentro persisten globalmente
+            self._runtime._execute_children(body_node, self._session)
 
         return FEmptyVariable()

@@ -5,8 +5,10 @@ WhileHand implements the <while> tag.
 Executes children repeatedly while a condition is true.
 
 Usage in XML:
-    <while condition="${counter} &lt; 5">
-        <log>${counter}</log>
+    <while condition="${contador} &lt; 5">
+        <box-def name="contador">
+            <evaluate>${contador} + 1</evaluate>
+        </box-def>
     </while>
 """
 
@@ -47,8 +49,7 @@ class WhileHand(AbstractHand):
                     f"<while> exceeded maximum iterations ({max_loops}). "
                     f"Possible infinite loop detected."
                 )
-            with self.context.new_scope():
-                self.execute_children()
+            self.execute_children()
             iterations += 1
 
         return FEmptyVariable()

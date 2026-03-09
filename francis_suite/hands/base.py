@@ -36,6 +36,46 @@ class AbstractHand(ABC):
 
     Subclasses must implement:
         - execute() — the hand's core logic
+
+    --- DEVELOPMENT RULES FOR HAND AUTHORS ---
+
+    RULE 1 — Variable interpolation in attributes:
+        Any attribute that the user could write as ${variable} MUST be
+        resolved through engine.resolve() before use.
+
+        Example:
+            engine = FrancisExpression(self.context)
+            url = engine.resolve(self.require_attr("url"))
+            path = engine.resolve(self.attr("path", "output/"))
+
+        Attributes that DO need resolve():
+            - Paths and URLs: path, url, dest
+            - Expressions: expression (XPath)
+            - Times: ms, timeout
+            - Dynamic names: name in <function-call>
+            - Any value the user might want to parametrize
+
+        Attributes that do NOT need resolve():
+            - Boolean flags: append, mkdir, recursive, pretty
+            - Fixed choices: level (info/debug/warning/error)
+            - Internal variable names: name in <box-def>, <function-create>
+
+    RULE 2 — Variable scoping ("if not touched, it does not change"):
+        Variables in the context only change when something explicitly sets them.
+        If a branch (if, else, case) does not execute, its variables are not touched.
+        If a loop iteration does not execute a box-def, that variable keeps its previous value.
+
+        This means:
+            - <while> and <loop> do NOT use new_scope() — variables persist across iterations.
+            - <function-call> DOES use new_scope() — function internals are always isolated.
+
+        Example:
+            Iteration 1: titulo = "Book A"   <- touched
+            Iteration 1: extra = ""          <- not touched, stays empty
+            Iteration 2: titulo = "Book B"   <- touched
+            Iteration 2: extra = "found"     <- touched
+            Iteration 3: titulo = "Book C"   <- touched
+            Iteration 3: extra = "found"     <- NOT touched, keeps "found" from iteration 2
     """
 
     def __init__(self, node: FNode, session: FrancisSession, runtime) -> None:
@@ -77,13 +117,21 @@ class AbstractHand(ABC):
     # --- Attribute helpers ---
 
     def attr(self, name: str, default: str | None = None) -> str | None:
-        """Get an XML attribute value, with optional default."""
+        """
+        Get an XML attribute value, with optional default.
+
+        NOTE: If this attribute can contain ${variables}, wrap with
+        engine.resolve() before use. See RULE 1 in class docstring.
+        """
         return self._node.get_attr(name, default)
 
     def require_attr(self, name: str) -> str:
         """
         Get a required XML attribute value.
         Raises ValueError if the attribute is missing.
+
+        NOTE: If this attribute can contain ${variables}, wrap with
+        engine.resolve() before use. See RULE 1 in class docstring.
         """
         return self._node.require_attr(name)
 

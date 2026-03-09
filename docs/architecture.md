@@ -12,7 +12,7 @@ cada vez. En vez de eso, escribes un archivo XML que describe
 qué hacer, y Francis Suite lo ejecuta.
 ```xml
 <francis-workflow>
-    <box-def var="pagina">
+    <box-def name="pagina">
         <httpx-call url="https://ejemplo.com"/>
     </box-def>
     <log>${pagina}</log>
@@ -30,18 +30,64 @@ workflow.xml
     ↓
 Parser (lxml)       lee el XML y construye un árbol de FNodes
     ↓
-Registry            resuelve cada tag a su clase Plugin
+Registry            resuelve cada tag a su clase Hand
     ↓
 Session             crea una sesión con UUID y métricas
     ↓
-Runtime             camina el árbol y ejecuta cada plugin
+Runtime             camina el árbol y ejecuta cada hand
     ↓
-Plugin.execute()    corre la lógica, devuelve un FVariable
+Hand.execute()      corre la lógica, devuelve un FVariable
     ↓
-Context             guarda el resultado en variables con scope
+Context             guarda el resultado en variables
     ↓
 Events              notifica inicio, fin, o error
 ```
+
+---
+
+## Reglas de desarrollo de Hands
+
+Estas reglas son obligatorias para cualquier hand nuevo o modificado.
+
+### REGLA 1 — Interpolación de variables en atributos
+
+Todo atributo que el usuario pueda escribir como `${variable}` DEBE
+pasar por `engine.resolve()` antes de usarse.
+```python
+engine = FrancisExpression(self.context)
+url  = engine.resolve(self.require_attr("url"))
+path = engine.resolve(self.attr("path", "output/"))
+```
+
+**Atributos que SÍ necesitan `engine.resolve()`:**
+- Rutas y URLs: `path`, `url`, `dest`
+- Expresiones: `expression` (XPath)
+- Tiempos: `ms`, `timeout`
+- Nombres dinámicos: `name` en `function-call`
+- Cualquier valor que el usuario podría querer parametrizar
+
+**Atributos que NO necesitan `engine.resolve()`:**
+- Flags booleanos: `append`, `mkdir`, `recursive`, `pretty`
+- Opciones fijas: `level` (info/debug/warning/error)
+- Nombres de variables internas: `name` en `box-def`, `function-create`
+
+### REGLA 2 — Scoping: "si no se toca, no cambia"
+
+Las variables del contexto solo cambian cuando algo las toca explícitamente.
+Si una rama (`if`, `else`, `case`) no se ejecuta, sus variables no se tocan.
+Si una iteración no ejecuta un `box-def`, esa variable conserva su valor anterior.
+```
+iteración 1 → titulo = "Book A"   ← se tocó
+iteración 1 → extra = ""          ← no se tocó, sigue vacío
+iteración 2 → titulo = "Book B"   ← se tocó
+iteración 2 → extra = "found"     ← se tocó
+iteración 3 → titulo = "Book C"   ← se tocó
+iteración 3 → extra = "found"     ← NO se tocó, conserva "found" de iteración 2
+```
+
+**Consecuencias directas:**
+- `<while>` y `<loop>` NO usan `new_scope()` — variables persisten entre iteraciones
+- `<function-call>` SÍ usa `new_scope()` — el interior de una función siempre está aislado
 
 ---
 
@@ -49,8 +95,8 @@ Events              notifica inicio, fin, o error
 
 ### ¿Qué problema resuelve?
 
-Cada plugin hace algo y devuelve un resultado. Ese resultado
-necesita un tipo común para que cualquier plugin pueda recibirlo
+Cada hand hace algo y devuelve un resultado. Ese resultado
+necesita un tipo común para que cualquier hand pueda recibirlo
 sin importar qué haya adentro.
 
 ### Clases
@@ -60,7 +106,7 @@ debe saber hacer tres cosas: convertirse a string, convertirse a
 lista, y decir si está vacía. Nunca se usa directamente.
 
 **`FNodeVariable`** — la más común. Guarda un solo valor:
-string, número, HTML, XML, o bytes. La mayoría de plugins
+string, número, HTML, XML, o bytes. La mayoría de hands
 devuelven esto.
 ```python
 var = FNodeVariable("<html>...</html>")
@@ -77,12 +123,12 @@ len(lista)         # 2
 ```
 
 **`FEmptyVariable`** — representa nada. Singleton: solo existe
-una instancia en toda la ejecución. La devuelven plugins como
+una instancia en toda la ejecución. La devuelven hands como
 `<empty>` o cuando no hay resultado.
 
 ### ¿Por qué no usar strings y listas de Python directamente?
 
-Porque necesitamos polimorfismo. Un plugin que recibe una variable
+Porque necesitamos polimorfismo. Un hand que recibe una variable
 no necesita saber qué hay adentro — llama `.to_string()` y listo.
 Esto hace el código más limpio y extensible.
 
@@ -99,17 +145,17 @@ representar cada etiqueta. `FNode` es esa estructura.
 
 Cada etiqueta XML se convierte en un FNode:
 ```xml
-<http-call url="https://ejemplo.com" method="GET"/>
+<httpx-call url="https://ejemplo.com" method="GET"/>
 ```
 ```python
-FNode(tag="http-call", attrs={"url": "https://ejemplo.com", "method": "GET"})
+FNode(tag="httpx-call", attrs={"url": "https://ejemplo.com", "method": "GET"})
 ```
 
 El XML completo se convierte en un árbol de FNodes:
 ```
 FNode(tag="francis-workflow")
-└── FNode(tag="box-def", attrs={"var": "pagina"})
-    └── FNode(tag="http-call", attrs={"url": "https://ejemplo.com"})
+└── FNode(tag="box-def", attrs={"name": "pagina"})
+    └── FNode(tag="httpx-call", attrs={"url": "https://ejemplo.com"})
 ```
 
 El runtime después camina ese árbol de arriba a abajo y ejecuta
@@ -124,22 +170,30 @@ cada nodo.
 
 ---
 
-
 ## core/context.py
 
 ### ¿Qué problema resuelve?
 
-Durante la ejecución, los plugins necesitan guardar y leer variables.
-`FContext` es ese almacén. Soporta scopes anidados — las variables
-definidas dentro de un loop o función no existen fuera.
+Durante la ejecución, los hands necesitan guardar y leer variables.
+`FContext` es ese almacén. Soporta scopes anidados para aislar
+variables de funciones.
 
 ### Cómo funciona el scope
 ```
 FContext
-├── scope global: { pagina, baseUrl }
-└── scope loop:   { item, index }
-    ← al salir del loop, item e index desaparecen
+├── scope global: { pagina, baseUrl, titulo }
+└── scope función: { param1, param2 }
+    ← al salir de la función, param1 y param2 desaparecen
 ```
+
+### Cuándo usar new_scope()
+
+`new_scope()` solo se usa cuando quieres que las variables sean
+PRIVADAS y no afecten al contexto externo. Actualmente solo
+`<function-call>` usa `new_scope()`.
+
+`<loop>` y `<while>` NO usan `new_scope()` — sus variables
+persisten en el contexto global entre iteraciones (ver Regla 2).
 
 ### Métodos importantes
 
@@ -154,30 +208,31 @@ ctx = FContext()
 ctx.set("url", FNodeVariable("https://ejemplo.com"))
 
 with ctx.new_scope():
-    ctx.set("item", FNodeVariable("temporal"))
-    ctx.get("item")  # existe
+    ctx.set("param", FNodeVariable("temporal"))
+    ctx.get("param")  # existe
 
-ctx.get("item")  # FEmptyVariable — ya no existe
+ctx.get("param")  # FEmptyVariable — ya no existe
+ctx.get("url")    # sigue existiendo — no fue tocada
 ```
 
 ## core/registry.py
 
 ### ¿Qué problema resuelve?
 
-Cuando el runtime encuentra un nodo con tag `http-call`, necesita
+Cuando el runtime encuentra un nodo con tag `httpx-call`, necesita
 saber qué clase Python ejecutar. El Registry es ese mapa.
 
 ### Cómo funciona
 ```
-"http-call"      →  HttpCallHand
+"httpx-call"     →  HttpxCallHand
 "xpath-extract"  →  XPathExtractHand
 "loop"           →  LoopHand
 ```
 
 Los hands se registran solos usando el decorador `@hand`:
 ```python
-@hand(tag="http-call")
-class HttpCallHand(AbstractHand):
+@hand(tag="httpx-call")
+class HttpxCallHand(AbstractHand):
     ...
 ```
 
@@ -195,11 +250,11 @@ automáticamente y registra la clase en el Registry.
 ### El decorador @hand
 ```python
 # En vez de registrar manualmente:
-HandRegistry.instance().register("http-call", HttpCallHand)
+HandRegistry.instance().register("httpx-call", HttpxCallHand)
 
 # Usamos el decorador:
-@hand(tag="http-call")
-class HttpCallHand(AbstractHand):
+@hand(tag="httpx-call")
+class HttpxCallHand(AbstractHand):
     ...
 ```
 
@@ -360,15 +415,17 @@ class MiHand(AbstractHand):
 - `self.context` — atajo a session.context
 - `self.attr(name)` — obtiene un atributo XML
 - `self.require_attr(name)` — atributo requerido, error si falta
-- `self.get_body_text()` — texto entre las etiquetas
+- `self.resolve_body_text()` — texto del body con variables resueltas
 - `self.has_children()` — si tiene nodos hijos
+- `self.execute_children()` — ejecuta todos los hijos
+- `self.execute_child(node)` — ejecuta un hijo específico
 
 ### Ejemplo
 ```python
 @hand(tag="log")
 class LogHand(AbstractHand):
     def execute(self) -> FVariable:
-        text = self.get_body_text()
+        text = self.resolve_body_text()
         print(text)
         return FNodeVariable(text)
 ```
@@ -425,16 +482,19 @@ print(session.status)    # SessionStatus.COMPLETED
 print(session.duration)  # 1.23
 ```
 
-## Próximos archivos
+---
+
+## Estado del proyecto
 
 | Archivo | Responsabilidad | Estado |
 |---|---|---|
 | `core/variables.py` | Tipos de variables | ✅ Creado |
 | `core/nodes.py` | Nodo XML parseado | ✅ Creado |
 | `core/context.py` | Store de variables con scope | ✅ Creado |
-| `core/registry.py` | Registro de plugins | ✅ Creado |
+| `core/registry.py` | Registro de hands | ✅ Creado |
 | `core/parser.py` | XML → árbol de FNodes | ✅ Creado |
 | `core/session.py` | Sesión de ejecución | ✅ Creado |
 | `core/events.py` | Sistema de eventos | ✅ Creado |
-| `hands/base.py` | Clase base de plugins | ✅ Creado |
+| `core/expressions.py` | Motor de expresiones y variables | ✅ Creado |
+| `hands/base.py` | Clase base de hands | ✅ Creado |
 | `core/runtime.py` | Motor de ejecución | ✅ Creado |

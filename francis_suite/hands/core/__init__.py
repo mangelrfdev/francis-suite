@@ -7,6 +7,9 @@ into the HandRegistry automatically.
 
 from francis_suite.hands.core import log
 from francis_suite.hands.core import box_def
+from francis_suite.hands.core import box
+from francis_suite.hands.core import shared_box_def
+from francis_suite.hands.core import shared_box
 from francis_suite.hands.core import sleep
 from francis_suite.hands.core import sleep_min
 from francis_suite.hands.core import sleep_avg
@@ -21,8 +24,6 @@ from francis_suite.hands.core import loop_body
 from francis_suite.hands.core import case_
 from francis_suite.hands.core import if_
 from francis_suite.hands.core import else_
-from francis_suite.hands.core import box
-from francis_suite.hands.core import box_def
 from francis_suite.hands.core import while_
 from francis_suite.hands.core import try_
 from francis_suite.hands.core import catch_

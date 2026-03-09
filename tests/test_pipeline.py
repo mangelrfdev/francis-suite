@@ -1076,3 +1076,197 @@ def test_file_read_not_found():
     session = runtime.run(root, workflow_name="test-file-read-not-found")
 
     assert session.status == SessionStatus.FAILED
+
+def test_shared_box_def_stores_in_global_scope():
+    """shared-box-def should store variable in global scope."""
+    xml = """
+    <francis-workflow>
+        <shared-box-def name="env">production</shared-box-def>
+        <box-def name="resultado">
+            <shared-box name="env"/>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-shared-box-def")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("resultado").to_string() == "production"
+
+
+def test_shared_box_def_replace_false_does_not_overwrite():
+    """shared-box-def with replace=false should not overwrite existing value."""
+    xml = """
+    <francis-workflow>
+        <shared-box-def name="env" replace="false">production</shared-box-def>
+        <shared-box-def name="env" replace="false">staging</shared-box-def>
+        <box-def name="resultado">
+            <shared-box name="env"/>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-shared-box-no-replace")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("resultado").to_string() == "production"
+
+
+def test_shared_box_def_replace_true_overwrites():
+    """shared-box-def with replace=true should overwrite existing value."""
+    xml = """
+    <francis-workflow>
+        <shared-box-def name="env" replace="false">production</shared-box-def>
+        <shared-box-def name="env" replace="true">staging</shared-box-def>
+        <box-def name="resultado">
+            <shared-box name="env"/>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-shared-box-replace")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("resultado").to_string() == "staging"
+
+
+def test_shared_box_accessible_as_variable():
+    """shared-box-def variable should be accessible via ${variable} syntax."""
+    xml = """
+    <francis-workflow>
+        <shared-box-def name="env">production</shared-box-def>
+        <box-def name="resultado">
+            <text-format>entorno: ${env}</text-format>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-shared-box-variable")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("resultado").to_string() == "entorno: production"
+
+
+def test_shared_box_accessible_inside_function():
+    """shared-box-def should be accessible inside functions."""
+    xml = """
+    <francis-workflow>
+        <shared-box-def name="env">production</shared-box-def>
+        <function-create name="get-env">
+            <function-return>
+                <shared-box name="env"/>
+            </function-return>
+        </function-create>
+        <box-def name="resultado">
+            <function-call name="get-env"/>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-shared-box-in-function")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("resultado").to_string() == "production"
+
+
+def test_shared_box_used_in_condition():
+    """shared-box-def should be usable in if conditions."""
+    xml = """
+    <francis-workflow>
+        <shared-box-def name="activo">true</shared-box-def>
+        <box-def name="resultado">
+            <if condition="${activo.toBoolean()}">
+                <log>activo</log>
+            </if>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-shared-box-condition")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("resultado").to_string() == "activo"
+
+
+def test_function_create_replace_false_does_not_overwrite():
+    """function-create with replace=false should not overwrite existing function."""
+    xml = """
+    <francis-workflow>
+        <function-create name="saludar" replace="false">
+            <function-return>
+                <log>hola original</log>
+            </function-return>
+        </function-create>
+        <function-create name="saludar" replace="false">
+            <function-return>
+                <log>hola reemplazado</log>
+            </function-return>
+        </function-create>
+        <box-def name="resultado">
+            <function-call name="saludar"/>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-function-no-replace")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("resultado").to_string() == "hola original"
+
+
+def test_function_create_replace_true_overwrites():
+    """function-create with replace=true should overwrite existing function."""
+    xml = """
+    <francis-workflow>
+        <function-create name="saludar" replace="false">
+            <function-return>
+                <log>hola original</log>
+            </function-return>
+        </function-create>
+        <function-create name="saludar" replace="true">
+            <function-return>
+                <log>hola reemplazado</log>
+            </function-return>
+        </function-create>
+        <box-def name="resultado">
+            <function-call name="saludar"/>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-function-replace")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("resultado").to_string() == "hola reemplazado"

@@ -68,6 +68,21 @@ class FContext:
         """
         self._scopes[0][name] = value
 
+    def set_shared_box(self, name: str, value: FVariable) -> None:
+        """
+        Set a shared variable in the global scope.
+        Used by <shared-box-def> — accessible across all workflows and functions.
+        """
+        self._scopes[0][name] = value
+
+    def get_shared_box(self, name: str) -> FVariable:
+        """
+        Get a shared variable directly from the global scope.
+        Used by <shared-box> — bypasses any local variables with the same name.
+        Returns FEmptyVariable if not found.
+        """
+        return self._scopes[0].get(name, FEmptyVariable())
+
     @contextmanager
     def new_scope(self) -> Iterator[None]:
         """

@@ -17,6 +17,32 @@ francis-suite run scraper.xml --param nombre=Juan --param modo=debug
 ```
 Los parámetros se inyectan al contexto como variables normales.
 
+### `file-manage` — actions pendientes
+Agregar nuevas actions a `file-manage`:
+```xml
+<file-manage action="mkdir" path="output/scraping-${id}/"/>
+<file-manage action="exists" path="output/config.txt"/>
+<file-manage action="rename" path="old.txt" dest="new.txt"/>
+<file-manage action="size" path="output/resultado.txt"/>
+```
+
+### `file-manage` — validaciones automáticas
+Todo lo que se pueda resolver automáticamente se resuelve.
+Todo lo que no se pueda resolver da un error claro y controlado.
+
+Validaciones automáticas:
+- Caracteres inválidos en rutas: `? * : " < > |`
+- Ruta vacía o demasiado larga
+- Carpeta padre no existe → crearla automáticamente
+- Sin permisos de escritura → error claro
+- Archivo no encontrado → error claro
+- Disco lleno → error claro
+
+Aplica a todos los hands de file: `file-read`, `file-write`,
+`file-download`, `file-upload`, `file-manage`.
+
+Mismo comportamiento en local y en nube.
+
 ---
 
 ## 🚧 Prioridad Media
@@ -60,6 +86,51 @@ En logs y en el IDE siempre muestra `***` para variables sensibles.
 
 Aplica a `box-def`, `shared-box-def` y `workflow-param`.
 
+### Storage Provider — Cloud-ready file system
+Francis Suite usa un storage provider abstracto — el XML nunca cambia,
+solo la configuración de dónde vive el storage.
+```xml
+<!-- mismo XML en local y en nube -->
+<file-write path="output/resultado.txt">contenido</file-write>
+```
+
+Configuración en `francis-config.yaml` (nunca en git):
+```yaml
+# local — default
+storage:
+  provider: local
+  base_path: output/
+
+# S3
+storage:
+  provider: s3
+  bucket: mi-bucket
+  region: us-east-1
+  credentials:
+    access_key: ${env:AWS_ACCESS_KEY}
+    secret_key: ${env:AWS_SECRET_KEY}
+
+# Google Cloud Storage
+storage:
+  provider: gcs
+  bucket: mi-bucket
+  credentials:
+    key_file: ${env:GCS_KEY_FILE}
+
+# Azure Blob
+storage:
+  provider: azure
+  container: mi-container
+  credentials:
+    connection_string: ${env:AZURE_CONNECTION_STRING}
+```
+
+Usa `fsspec` como librería base — estándar de la industria,
+usado por Pandas, Dask, DuckDB, Prefect, etc.
+
+Las credenciales viven en variables de entorno — nunca en el XML.
+El XML es siempre seguro para commitear a git.
+
 ### Hands externos pendientes
 - [ ] `scrapling-call` — scraping con Scrapling
 - [ ] `playwright-call` — scraping con Playwright
@@ -102,18 +173,18 @@ Detectar si el workflow está vivo durante ejecuciones largas:
 ### `fs` — Objeto de utilidades del sistema
 Disponible en todas las expresiones:
 ```xml
-${fs.now()}           <!-- fecha/hora actual -->
-${fs.uuid()}          <!-- generar UUID -->
-${fs.env("API_KEY")}  <!-- leer variable de entorno -->
-${fs.random(1, 100)}  <!-- número aleatorio -->
+${fs.now()}                    <!-- fecha/hora actual -->
+${fs.uuid()}                   <!-- generar UUID -->
+${fs.env("API_KEY")}           <!-- leer variable de entorno -->
+${fs.random(1, 100)}           <!-- número aleatorio -->
 ${fs.urlEncode("hola mundo")}  <!-- encodear URL -->
 ```
 
 ### FastAPI — REST API
 Exponer Francis Suite como API REST:
 ```
-POST /run        — ejecutar workflow
-GET  /status/:id — estado de una ejecución
+POST /run         — ejecutar workflow
+GET  /status/:id  — estado de una ejecución
 GET  /context/:id — variables del contexto en tiempo real
 ```
 

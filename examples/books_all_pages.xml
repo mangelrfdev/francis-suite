@@ -6,9 +6,10 @@
     <box-def name="url_actual">http://books.toscrape.com/catalogue/page-1.html</box-def>
     <box-def name="hay_siguiente">true</box-def>
     <box-def name="pagina">0</box-def>
+    <box-def name="contador">0</box-def>
 
     <!-- Crear archivo de salida -->
-    <file-write path="output/todos_los_libros.txt"></file-write>
+    <file-write path="output/todos_los_libros.txt" mkdir="true"> </file-write>
 
     <while condition="${hay_siguiente.toBoolean()}" max-loops="60">
 
@@ -46,7 +47,12 @@
                 <box-def name="precio">
                     <xpath-extract expression=".//p[@class='price_color']/text()">${libro}</xpath-extract>
                 </box-def>
-                <file-write path="output/todos_los_libros.txt" append="true">${titulo} | ${precio}</file-write>
+                <box-def name="contador">
+                    <evaluate>${contador} + 1</evaluate>
+                </box-def>
+                <log>contador: ${contador}</log>
+                <file-write path="output/todos_los_libros.txt" append="true">${contador} - Title: ${titulo} - Price: ${precio}
+</file-write>
             </loop-body>
         </loop>
 

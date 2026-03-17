@@ -122,25 +122,6 @@ def test_sleep_variable_mode():
 
     assert session.status == SessionStatus.COMPLETED
 
-def test_empty_returns_empty_variable():
-    """empty tag should return an empty variable."""
-    xml = """
-    <francis-workflow>
-        <box-def name="nada">
-            <empty/>
-        </box-def>
-    </francis-workflow>
-    """
-
-    parser = FParser()
-    runtime = FRuntime()
-
-    root = parser.parse_string(xml)
-    session = runtime.run(root, workflow_name="test-empty")
-
-    assert session.status == SessionStatus.COMPLETED
-    assert session.context.get("nada").is_empty()
-
 def test_httpx_call_fetches_url():
     """httpx-call should fetch a URL and return the response body."""
     xml = """

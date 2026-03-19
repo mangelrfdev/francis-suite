@@ -65,6 +65,7 @@ class FileWriteHand(AbstractHand):
             content = content + "\n"
 
         mode = "a" if append else "w"
-        path.open(mode, encoding=encoding).write(content)
+        with path.open(mode, encoding=encoding) as f:
+            f.write(content)
 
         return FEmptyVariable()

@@ -81,7 +81,7 @@ class FileManageHand(AbstractHand):
 
         if mkdir:
             dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.move(str(path), str(dest))
+        shutil.move(path, dest)
         return FEmptyVariable()
 
     def _copy(self, path: Path) -> FVariable:
@@ -93,9 +93,9 @@ class FileManageHand(AbstractHand):
         if mkdir:
             dest.parent.mkdir(parents=True, exist_ok=True)
         if path.is_dir():
-            shutil.copytree(str(path), str(dest))
+            shutil.copytree(path, dest)
         else:
-            shutil.copy2(str(path), str(dest))
+            shutil.copy2(path, dest)
         return FEmptyVariable()
 
     def _list(self, path: Path) -> FVariable:
@@ -107,9 +107,9 @@ class FileManageHand(AbstractHand):
             raise FileNotFoundError(f"<file-manage list> cannot find: '{path}'")
 
         if recursive:
-            files = list(path.rglob(pattern))
+            files = [f for f in path.rglob(pattern) if f.is_file()]
         else:
-            files = list(path.glob(pattern))
+            files = [f for f in path.glob(pattern) if f.is_file()]
 
         if not files:
             return FEmptyVariable()

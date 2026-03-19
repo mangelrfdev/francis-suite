@@ -70,6 +70,15 @@ Las variables del contexto solo cambian cuando algo las toca explícitamente.
 - while y loop NO usan new_scope()
 - function-call SÍ usa new_scope()
 
+### REGLA 4 — Compatibilidad universal:
+
+Todo el código debe funcionar igual en Windows, Linux y Mac.
+- Rutas: siempre usar pathlib.Path — nunca strings con / o \ hardcodeados
+- Rutas en tests: siempre usar .as_posix() al insertar en f-strings de XML
+- Encoding: siempre especificar utf-8 explícitamente al leer o escribir archivos
+- Saltos de línea: nunca asumir \n o \r\n — dejar que Python lo maneje
+- Procesos externos: nunca llamar comandos del sistema que sean OS-específicos
+
 ---
 
 ## core/variables.py ✅

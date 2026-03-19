@@ -58,4 +58,4 @@ class FileDownloadHand(AbstractHand):
                 for chunk in response.iter_bytes():
                     f.write(chunk)
 
-        return FNodeVariable(str(path))
+        return FNodeVariable(path.as_posix())

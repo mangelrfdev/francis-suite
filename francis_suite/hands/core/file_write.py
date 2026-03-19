@@ -31,6 +31,7 @@ class FileWriteHand(AbstractHand):
         path (required): path to the file to write.
         encoding (optional): file encoding. Default: utf-8.
         append (optional): append to file instead of overwrite. Default: false.
+        newline (optional): add a newline character after content. Default: false.
         mkdir (optional): create parent directories if missing. Default: true.
 
     Returns:
@@ -47,6 +48,7 @@ class FileWriteHand(AbstractHand):
         path_str = engine.resolve(self.require_attr("path"))
         encoding = engine.resolve(self.attr("encoding", "utf-8"))
         append = engine.resolve(self.attr("append", "false")).lower() == "true"
+        newline = engine.resolve(self.attr("newline", "false")).lower() == "true"
         mkdir = engine.resolve(self.attr("mkdir", "true")).lower() == "true"
 
         if self.has_children():
@@ -58,6 +60,9 @@ class FileWriteHand(AbstractHand):
 
         if mkdir:
             path.parent.mkdir(parents=True, exist_ok=True)
+
+        if newline:
+            content = content + "\n"
 
         mode = "a" if append else "w"
         path.open(mode, encoding=encoding).write(content)

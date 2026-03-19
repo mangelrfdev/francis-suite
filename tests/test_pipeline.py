@@ -852,7 +852,7 @@ def test_call_workflow_executes_external_file(tmp_path):
 
     xml = f"""
     <francis-workflow>
-        <call-workflow path="{external}"/>
+        <call-workflow path="{external.as_posix()}"/>
     </francis-workflow>
     """
 
@@ -913,9 +913,9 @@ def test_file_write_and_read(tmp_path):
 
     xml = f"""
     <francis-workflow>
-        <file-write path="{output}">Hola Francis</file-write>
+        <file-write path="{output.as_posix()}">Hola Francis</file-write>
         <box-def name="contenido">
-            <file-read path="{output}"/>
+            <file-read path="{output.as_posix()}"/>
         </box-def>
     </francis-workflow>
     """
@@ -935,10 +935,10 @@ def test_file_write_append(tmp_path):
 
     xml = f"""
     <francis-workflow>
-        <file-write path="{output}">linea 1</file-write>
-        <file-write path="{output}" append="true"> linea 2</file-write>
+        <file-write path="{output.as_posix()}">linea 1</file-write>
+        <file-write path="{output.as_posix()}" append="true"> linea 2</file-write>
         <box-def name="contenido">
-            <file-read path="{output}"/>
+            <file-read path="{output.as_posix()}"/>
         </box-def>
     </francis-workflow>
     """
@@ -960,7 +960,7 @@ def test_file_manage_delete(tmp_path):
 
     xml = f"""
     <francis-workflow>
-        <file-manage action="delete" path="{target}"/>
+        <file-manage action="delete" path="{target.as_posix()}"/>
     </francis-workflow>
     """
 
@@ -982,7 +982,7 @@ def test_file_manage_list(tmp_path):
     xml = f"""
     <francis-workflow>
         <box-def name="archivos">
-            <file-manage action="list" path="{tmp_path}" filter="*.txt"/>
+            <file-manage action="list" path="{tmp_path.as_posix()}" filter="*.txt"/>
         </box-def>
     </francis-workflow>
     """
@@ -1005,7 +1005,7 @@ def test_file_manage_copy(tmp_path):
 
     xml = f"""
     <francis-workflow>
-        <file-manage action="copy" path="{source}" dest="{dest}"/>
+        <file-manage action="copy" path="{source.as_posix()}" dest="{dest.as_posix()}"/>
     </francis-workflow>
     """
 
@@ -1027,7 +1027,7 @@ def test_file_manage_move(tmp_path):
 
     xml = f"""
     <francis-workflow>
-        <file-manage action="move" path="{source}" dest="{dest}"/>
+        <file-manage action="move" path="{source.as_posix()}" dest="{dest.as_posix()}"/>
     </francis-workflow>
     """
 
@@ -1270,3 +1270,23 @@ def test_box_def_resolves_variables_in_body_text():
 
     assert session.status == SessionStatus.COMPLETED
     assert session.context.get("url").to_string() == "https://ejemplo.com/page-3.html"
+
+def test_file_write_newline(tmp_path):
+    """file-write with newline=true should append a newline after content."""
+    output = tmp_path / "output.txt"
+
+    xml = f"""
+    <francis-workflow>
+        <file-write path="{output.as_posix()}" newline="true">linea uno</file-write>
+        <file-write path="{output.as_posix()}" append="true" newline="true">linea dos</file-write>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-file-write-newline")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert output.read_text() == "linea uno\nlinea dos\n"

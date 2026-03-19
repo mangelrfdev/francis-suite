@@ -114,4 +114,4 @@ class FileManageHand(AbstractHand):
         if not files:
             return FEmptyVariable()
 
-        return FListVariable([FNodeVariable(str(f)) for f in sorted(files)])
+        return FListVariable([FNodeVariable(f.as_posix()) for f in sorted(files)])

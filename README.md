@@ -136,7 +136,7 @@ examples/
 | `<function-param>` | Pass parameters to a function |
 | `<function-return>` | Return a value from a function |
 | `<regex>` | Apply regular expressions |
-| `<text-format>` | Interpolate variables into text |
+| `<compose>` | Interpolate variables into text |
 | `<text-split>` | Split text into a list of tokens |
 | `<evaluate>` | Evaluate expressions |
 | `<build-list>` | Build a list from children |

@@ -1,500 +1,311 @@
 # Francis Suite — Architecture Guide
 
-Guía técnica del proyecto. Explica qué hace cada parte del código,
-por qué existe, y cómo se relaciona con el resto.
+Guía técnica completa del proyecto.
 
 ---
 
-## El problema que resuelve Francis Suite
+## ¿Qué es Francis Suite?
 
-Quieres hacer web scraping pero no quieres escribir código Python
-cada vez. En vez de eso, escribes un archivo XML que describe
-qué hacer, y Francis Suite lo ejecuta.
-```xml
-<francis-workflow>
-    <box-def name="pagina">
-        <httpx-call url="https://ejemplo.com"/>
-    </box-def>
-    <log>${pagina}</log>
-</francis-workflow>
+Framework universal de extracción y procesamiento de datos.
+Low-code, declarativo, extensible, cloud-ready.
+
+No es solo scraping — extrae data de cualquier fuente:
+web, PDF, Excel, JSON, APIs, imágenes con IA, bases de datos.
+
+---
+
+## Filosofía central
+
 ```
-
-Francis Suite lee ese XML, lo convierte en un árbol de objetos,
-y ejecuta cada etiqueta como un plugin.
+Todo se guarda en boxes.
+Una box es la unidad de datos del framework.
+Todo resultado se guarda en una box.
+Todo lo que se quiere usar después, vive en una box.
+```
 
 ---
 
 ## Pipeline de ejecución
+
 ```
 workflow.xml
     ↓
-Parser (lxml)       lee el XML y construye un árbol de FNodes
+FParser         lee el XML y construye un árbol de FNodes
     ↓
-Registry            resuelve cada tag a su clase Hand
+FRuntime        camina el árbol y ejecuta cada hand
     ↓
-Session             crea una sesión con UUID y métricas
+Hand.execute()  corre la lógica, devuelve un FVariable
     ↓
-Runtime             camina el árbol y ejecuta cada hand
+FContext        guarda el resultado en variables (boxes)
     ↓
-Hand.execute()      corre la lógica, devuelve un FVariable
-    ↓
-Context             guarda el resultado en variables
-    ↓
-Events              notifica inicio, fin, o error
+EventBus        notifica inicio, fin, o error
 ```
+
+FNode es el puente universal. Todo lo que venga de afuera
+se convierte a FNode. El engine nunca sabe el formato de origen.
+Esto permite agregar YAML en el futuro sin cambiar nada del engine.
 
 ---
 
 ## Reglas de desarrollo de Hands
 
-Estas reglas son obligatorias para cualquier hand nuevo o modificado.
+### REGLA 1 — engine.resolve() en atributos
 
-### REGLA 1 — Interpolación de variables en atributos
+Todo atributo que el usuario pueda escribir como ${variable}
+DEBE pasar por engine.resolve() antes de usarse.
 
-Todo atributo que el usuario pueda escribir como `${variable}` DEBE
-pasar por `engine.resolve()` antes de usarse.
 ```python
 engine = FrancisExpression(self.context)
 url  = engine.resolve(self.require_attr("url"))
 path = engine.resolve(self.attr("path", "output/"))
 ```
 
-**Atributos que SÍ necesitan `engine.resolve()`:**
-- Rutas y URLs: `path`, `url`, `dest`
-- Expresiones: `expression` (XPath)
-- Tiempos: `ms`, `timeout`
-- Nombres dinámicos: `name` en `function-call`
-- Cualquier valor que el usuario podría querer parametrizar
-
-**Atributos que NO necesitan `engine.resolve()`:**
-- Flags booleanos: `append`, `mkdir`, `recursive`, `pretty`
-- Opciones fijas: `level` (info/debug/warning/error)
-- Nombres de variables internas: `name` en `box-def`, `function-create`
+SÍ necesitan resolve: path, url, dest, expression, ms, timeout, name en function-call.
+NO necesitan resolve: flags booleanos (append, mkdir), opciones fijas (level), nombres internos (name en box-def).
 
 ### REGLA 2 — Scoping: "si no se toca, no cambia"
 
 Las variables del contexto solo cambian cuando algo las toca explícitamente.
-Si una rama (`if`, `else`, `case`) no se ejecuta, sus variables no se tocan.
-Si una iteración no ejecuta un `box-def`, esa variable conserva su valor anterior.
-```
-iteración 1 → titulo = "Book A"   ← se tocó
-iteración 1 → extra = ""          ← no se tocó, sigue vacío
-iteración 2 → titulo = "Book B"   ← se tocó
-iteración 2 → extra = "found"     ← se tocó
-iteración 3 → titulo = "Book C"   ← se tocó
-iteración 3 → extra = "found"     ← NO se tocó, conserva "found" de iteración 2
-```
 
-**Consecuencias directas:**
-- `<while>` y `<loop>` NO usan `new_scope()` — variables persisten entre iteraciones
-- `<function-call>` SÍ usa `new_scope()` — el interior de una función siempre está aislado
+- while y loop NO usan new_scope()
+- function-call SÍ usa new_scope()
 
 ---
 
-## core/variables.py
+## core/variables.py ✅
 
-### ¿Qué problema resuelve?
-
-Cada hand hace algo y devuelve un resultado. Ese resultado
-necesita un tipo común para que cualquier hand pueda recibirlo
-sin importar qué haya adentro.
-
-### Clases
-
-**`FVariable`** — clase base abstracta. Define que toda variable
-debe saber hacer tres cosas: convertirse a string, convertirse a
-lista, y decir si está vacía. Nunca se usa directamente.
-
-**`FNodeVariable`** — la más común. Guarda un solo valor:
-string, número, HTML, XML, o bytes. La mayoría de hands
-devuelven esto.
-```python
-var = FNodeVariable("<html>...</html>")
-var.to_string()  # "<html>...</html>"
-var.is_empty()   # False
-```
-
-**`FListVariable`** — guarda una lista de FVariables. La devuelve
-por ejemplo `xpath-extract` cuando encuentra múltiples nodos.
-```python
-lista = FListVariable([FNodeVariable("uno"), FNodeVariable("dos")])
-lista.to_string()  # "unodos"
-len(lista)         # 2
-```
-
-**`FEmptyVariable`** — representa nada. Singleton: solo existe
-una instancia en toda la ejecución. La devuelven hands como
-`<empty>` o cuando no hay resultado.
-
-### ¿Por qué no usar strings y listas de Python directamente?
-
-Porque necesitamos polimorfismo. Un hand que recibe una variable
-no necesita saber qué hay adentro — llama `.to_string()` y listo.
-Esto hace el código más limpio y extensible.
+FVariable — clase base abstracta.
+FNodeVariable — valor único (string, número, HTML, XML, bytes).
+FListVariable — lista de FVariables.
+FEmptyVariable — representa nada. Singleton.
 
 ---
 
-## core/nodes.py
+## core/nodes.py ✅
 
-### ¿Qué problema resuelve?
-
-Cuando el parser lee el XML, necesita una estructura Python para
-representar cada etiqueta. `FNode` es esa estructura.
-
-### Clase FNode
-
-Cada etiqueta XML se convierte en un FNode:
-```xml
-<httpx-call url="https://ejemplo.com" method="GET"/>
-```
-```python
-FNode(tag="httpx-call", attrs={"url": "https://ejemplo.com", "method": "GET"})
-```
-
-El XML completo se convierte en un árbol de FNodes:
-```
-FNode(tag="francis-workflow")
-└── FNode(tag="box-def", attrs={"name": "pagina"})
-    └── FNode(tag="httpx-call", attrs={"url": "https://ejemplo.com"})
-```
-
-El runtime después camina ese árbol de arriba a abajo y ejecuta
-cada nodo.
-
-### Métodos importantes
-
-- `get_attr(name, default)` — obtiene un atributo, con valor por defecto
-- `require_attr(name)` — obtiene un atributo requerido, lanza error si falta
-- `children_by_tag(tag)` — filtra hijos por nombre de tag
-- `first_child_by_tag(tag)` — primer hijo con ese tag
+FNode representa cada etiqueta XML como objeto Python.
+Métodos: get_attr, require_attr, children_by_tag, first_child_by_tag.
 
 ---
 
-## core/context.py
+## core/context.py ✅
 
-### ¿Qué problema resuelve?
+FContext — almacén de variables con scopes anidados.
+Métodos: set, get, set_global, get_global, set_shared_box, get_shared_box, new_scope.
 
-Durante la ejecución, los hands necesitan guardar y leer variables.
-`FContext` es ese almacén. Soporta scopes anidados para aislar
-variables de funciones.
+---
 
-### Cómo funciona el scope
-```
-FContext
-├── scope global: { pagina, baseUrl, titulo }
-└── scope función: { param1, param2 }
-    ← al salir de la función, param1 y param2 desaparecen
-```
+## core/registry.py ✅
 
-### Cuándo usar new_scope()
+Mapa de tags a clases Hand. Los hands se registran con @hand(tag="nombre").
+Métodos: get, require, all_tags, reset.
 
-`new_scope()` solo se usa cuando quieres que las variables sean
-PRIVADAS y no afecten al contexto externo. Actualmente solo
-`<function-call>` usa `new_scope()`.
+---
 
-`<loop>` y `<while>` NO usan `new_scope()` — sus variables
-persisten en el contexto global entre iteraciones (ver Regla 2).
+## core/parser.py ✅
 
-### Métodos importantes
+Lee XML y construye árbol de FNodes.
+Métodos: parse_file, parse_string, parse_bytes.
+Validaciones: archivo existe, XML válido, tag raíz = francis-workflow.
+Futuro: FYamlParser convierte YAML a FNode tree. El engine no cambia.
 
-- `set(name, value)` — guarda variable en el scope actual
-- `get(name)` — busca de adentro hacia afuera, devuelve FEmptyVariable si no existe
-- `set_global(name, value)` — guarda directo en el scope global
-- `new_scope()` — context manager que crea y destruye un scope automáticamente
+---
 
-### Ejemplo
-```python
-ctx = FContext()
-ctx.set("url", FNodeVariable("https://ejemplo.com"))
+## core/session.py ✅
 
-with ctx.new_scope():
-    ctx.set("param", FNodeVariable("temporal"))
-    ctx.get("param")  # existe
+Contenedor de la ejecución.
+Estados: CREATED, RUNNING, COMPLETED, FAILED, CANCELLED.
+Contiene: id (UUID), status, context, timestamps, duration, error.
 
-ctx.get("param")  # FEmptyVariable — ya no existe
-ctx.get("url")    # sigue existiendo — no fue tocada
-```
+---
 
-## core/registry.py
+## core/events.py ✅
 
-### ¿Qué problema resuelve?
+EventBus — canal de comunicación entre partes del sistema.
+El Plugin VSCode usará estos eventos para el tree de ejecución en tiempo real.
 
-Cuando el runtime encuentra un nodo con tag `httpx-call`, necesita
-saber qué clase Python ejecutar. El Registry es ese mapa.
+Eventos de sesión: SessionStartedEvent, SessionCompletedEvent,
+SessionFailedEvent, SessionCancelledEvent.
 
-### Cómo funciona
-```
-"httpx-call"     →  HttpxCallHand
-"xpath-extract"  →  XPathExtractHand
-"loop"           →  LoopHand
-```
+Eventos de hands: HandStartedEvent, HandCompletedEvent, HandFailedEvent.
 
-Los hands se registran solos usando el decorador `@hand`:
-```python
-@hand(tag="httpx-call")
-class HttpxCallHand(AbstractHand):
-    ...
-```
+---
 
-Cuando Python importa ese módulo, el decorador se ejecuta
-automáticamente y registra la clase en el Registry.
+## core/expressions.py ✅
 
-### Métodos importantes
+Motor de expresiones.
 
-- `register(tag, class)` — registra un hand (lo llama el decorador)
-- `get(tag)` — devuelve la clase o None si no existe
-- `require(tag)` — devuelve la clase o lanza error si no existe
-- `all_tags()` — lista todos los tags registrados
-- `reset()` — solo para tests, nunca en producción
+engine.resolve("${base_url}/page-${pagina}.html")
+engine.evaluate("${contador} + 1")
+engine.evaluate("${precio} > 1000")
 
-### El decorador @hand
-```python
-# En vez de registrar manualmente:
-HandRegistry.instance().register("httpx-call", HttpxCallHand)
+Métodos en variables: toBoolean(), isEmpty(), toUpperCase(), toLowerCase(), trim().
 
-# Usamos el decorador:
-@hand(tag="httpx-call")
-class HttpxCallHand(AbstractHand):
-    ...
-```
+---
 
-## core/parser.py
+## core/runtime.py ✅
 
-### ¿Qué problema resuelve?
+Ejecuta el árbol de FNodes.
+Métodos: run(root, workflow_name), execute_node, _execute_children.
 
-Es el primer paso del pipeline. Lee el archivo XML del workflow
-y lo convierte en un árbol de FNodes que el runtime puede ejecutar.
+---
 
-### Cómo funciona
-```
-workflow.xml
-    ↓
-lxml etree.fromstring()
-    ↓
-_element_to_fnode() recursivo
-    ↓
-FNode tree
-```
+## hands/base.py ✅
 
-### Métodos principales
+AbstractHand — clase base de todos los hands.
 
-- `parse_file(path)` — lee un archivo XML del disco
-- `parse_string(xml)` — parsea desde un string (útil para tests)
-- `parse_bytes(xml)` — método central, los otros dos llaman este
-
-### Validaciones
-
-- El archivo debe existir
-- El XML debe ser válido
-- El tag raíz debe ser `<francis-workflow>`
-
-### Ejemplo
-```python
-parser = FParser()
-root = parser.parse_file("workflow.xml")
-# root = FNode(tag="francis-workflow", children=[...])
-
-# O desde string (útil en tests):
-root = parser.parse_string("""
-    <francis-workflow>
-        <log>Hola mundo</log>
-    </francis-workflow>
-""")
-```
-
-## core/session.py
-
-### ¿Qué problema resuelve?
-
-Cada vez que ejecutas un workflow, Francis Suite necesita un
-contenedor que agrupe todo lo que pasa durante esa ejecución:
-su identidad, su estado, sus métricas y sus variables.
-
-### Estados posibles
-```
-CREATED → RUNNING → COMPLETED
-                  → FAILED
-                  → CANCELLED
-```
-
-### Qué contiene una sesión
-
-- `id` — UUID único, identifica esta ejecución
-- `status` — estado actual (SessionStatus)
-- `context` — el FContext con todas las variables
-- `created_at / started_at / finished_at` — timestamps
-- `duration` — segundos que tardó la ejecución
-- `error` — la excepción si la sesión falló
-
-### Ejemplo
-```python
-session = FrancisSession(workflow_name="mi-workflow")
-session.start()
-# ... ejecución ...
-session.complete()
-
-print(session.id)        # "abc-123-..."
-print(session.status)    # SessionStatus.COMPLETED
-print(session.duration)  # 2.34 (segundos)
-```
-
-## core/events.py
-
-### ¿Qué problema resuelve?
-
-Durante la ejecución, distintas partes del sistema necesitan
-saber qué está pasando sin estar directamente conectadas entre sí.
-El EventBus es el canal de comunicación entre ellas.
-
-### Patrón publish/subscribe
-```
-Runtime                    Listeners
-  │                            │
-  ├─ emit(SessionStarted)  ──► Logger
-  ├─ emit(HandStarted)     ──► IDE
-  ├─ emit(HandCompleted)   ──► IDE
-  └─ emit(SessionFailed)   ──► Logger, IDE
-```
-
-### Eventos disponibles
-
-**Sesión:**
-- `SessionStartedEvent` — la sesión empezó
-- `SessionCompletedEvent` — la sesión terminó bien
-- `SessionFailedEvent` — la sesión falló
-- `SessionCancelledEvent` — la sesión fue cancelada
-
-**Hands:**
-- `HandStartedEvent` — un hand empezó a ejecutarse
-- `HandCompletedEvent` — un hand terminó bien
-- `HandFailedEvent` — un hand lanzó un error
-
-### Ejemplo
-```python
-bus = EventBus()
-
-@bus.on(SessionStartedEvent)
-def on_start(event):
-    print(f"Session {event.session_id} started")
-
-bus.emit(SessionStartedEvent(session_id="abc-123"))
-```
-
-### Agregar un logger en el futuro
-
-Solo hay que suscribirse a los eventos que interesan:
-```python
-@bus.on(HandFailedEvent)
-def log_error(event):
-    logger.error(f"Hand <{event.tag}> failed: {event.error}")
-```
-
-El runtime no cambia nada — sigue emitiendo eventos igual.
-
-## hands/base.py
-
-### ¿Qué problema resuelve?
-
-Todo hand necesita acceso al nodo XML, a la sesión, y al contexto
-de variables. `AbstractHand` provee todo eso — los hands concretos
-solo tienen que implementar `execute()`.
-
-### Contrato
 ```python
 @hand(tag="mi-tag")
 class MiHand(AbstractHand):
     def execute(self) -> FVariable:
-        # tu lógica aquí
         return FNodeVariable("resultado")
 ```
 
-### Lo que hereda cada hand
+Disponible en cada hand: self.node, self.session, self.context,
+self.attr, self.require_attr, self.resolve_body_text,
+self.has_children, self.execute_children, self.execute_child.
 
-- `self.node` — el FNode con tag, atributos e hijos
-- `self.session` — la sesión actual
-- `self.context` — atajo a session.context
-- `self.attr(name)` — obtiene un atributo XML
-- `self.require_attr(name)` — atributo requerido, error si falta
-- `self.resolve_body_text()` — texto del body con variables resueltas
-- `self.has_children()` — si tiene nodos hijos
-- `self.execute_children()` — ejecuta todos los hijos
-- `self.execute_child(node)` — ejecuta un hijo específico
+---
 
-### Ejemplo
-```python
-@hand(tag="log")
-class LogHand(AbstractHand):
-    def execute(self) -> FVariable:
-        text = self.resolve_body_text()
-        print(text)
-        return FNodeVariable(text)
+## Hands implementados ✅
+
+```
+Variables:    box-def, box, shared-box-def (replace), shared-box, evaluate
+HTTP:         httpx-call, httpx-header, httpx-param
+Parsing:      convert-html-to-xml, xpath-extract
+              convert-json-to-xml, convert-xml-to-json
+Regex:        regex, regex-pattern, regex-input, regex-result
+Text:         compose, text-split
+Flow:         while (max-loops), loop (loop-list, loop-body, index, max-loops)
+              if, else, case, try, catch, exit, sleep
+Functions:    function-create (replace), function-call, function-param, function-return
+Files:        file-read, file-write, file-download, file-upload, file-manage
+Misc:         log, build-list, call-workflow
 ```
 
-## core/runtime.py
+---
 
-### ¿Qué problema resuelve?
+## Hands pendientes — Urgentes ⬜
 
-Es el corazón del framework. Toma el árbol de FNodes que produjo
-el parser y lo ejecuta nodo por nodo, gestionando la sesión
-y emitiendo eventos en cada paso.
+- file-write — agregar newline="true"
+- file-manage — agregar mkdir, exists, rename, size
+- workflow-param — parámetros de entrada al workflow
+- sensitive — atributo para box-def y shared-box-def
 
-### Cómo funciona
+---
+
+## Hands pendientes — Sistema de Records ⬜
+
+Diseño acordado, pendiente codear.
+
+Ciclo de vida:
 ```
-FRuntime.run(root)
-    ↓
-Crea FrancisSession
-    ↓
-Emite SessionStartedEvent
-    ↓
-_execute_children(root)
-    ↓
-Por cada hijo:
-    execute_node(child)
-        ↓
-    HandRegistry.require(tag) → HandClass
-        ↓
-    HandClass(node, session).execute()
-        ↓
-    Devuelve FVariable
-    ↓
-Emite SessionCompletedEvent (o SessionFailedEvent)
-    ↓
-Devuelve FrancisSession con status y métricas
+1. DEFINIR   → record-create
+2. AGREGAR   → record-add
+3. VERIFICAR → record-last-added
+4. GUARDAR   → record-save
 ```
 
-### Métodos principales
+```xml
+<!-- 1. definir schema -->
+<record-create name="productosRecords">
+    <record-set-group name="productos" required="true">
+        <record-set-field name="nombre_visible" type="string" required="true"/>
+        <record-set-field name="precio" type="integer" required="true"/>
+        <record-set-field name="marca" type="string" required="false"/>
+    </record-set-group>
+    <record-set-group name="empaques" required="false">
+        <record-set-field name="cantidad" type="integer" required="false"/>
+        <record-set-field name="unidad" type="string" required="false"/>
+    </record-set-group>
+</record-create>
 
-- `run(root, workflow_name)` — ejecuta el workflow completo,
-  siempre devuelve una sesión, nunca lanza excepciones
-- `execute_node(node, session)` — ejecuta un nodo individual
-- `_execute_children(node, session)` — ejecuta todos los hijos
-  de un nodo en orden
+<!-- 2. agregar dentro del loop -->
+<record-add to="productosRecords">
+    <record-add-group name="productos">
+        <record-add-field name="nombre_visible">${nombre}</record-add-field>
+        <record-add-field name="precio">${precio}</record-add-field>
+    </record-add-group>
+</record-add>
 
-### Ejemplo
-```python
-parser = FParser()
-runtime = FRuntime()
+<!-- 3. verificar -->
+<record-last-added from="productosRecords"/>
 
-root = parser.parse_file("workflow.xml")
-session = runtime.run(root, workflow_name="mi-workflow")
-
-print(session.status)    # SessionStatus.COMPLETED
-print(session.duration)  # 1.23
+<!-- 4. guardar -->
+<record-save from="productosRecords" format="json" path="output/productos.json"/>
+<record-save from="productosRecords" format="csv" path="output/productos.csv"/>
+<record-save from="productosRecords" format="ndjson" path="output/productos.ndjson"/>
 ```
+
+Tipos de field: string, integer, decimal, boolean, date, datetime, otros relacionados a base de datos, se entiende?
+
+Formatos: json, csv, ndjson, txt, html, xml, etc.
+
+Modos actuales para no colapsar la memoria(son ideas,se necesita pensar seriamente en las ideas): mode="batch" (default), mode="stream" (sin límite RAM).
+
+Otras etiquetas: record-store-all, record-view-content, record-count.
+
+Nota de memoria: Con mode="stream" la box guarda solo referencia al archivo.
+El Plugin VSCode navegará desde disco: record 1 de 1000. Nunca se carga todo en RAM.
+
+---
+
+## Hands pendientes pero que aun no son prioridad — Nuevas fuentes ⬜
+
+```
+use-ia          — análisis con IA (imágenes a JSON estructurado)
+playwright-call — automatización de browser
+scrapling-call  — scraping avanzado
+```
+---
+
+## Futuro del proyecto ⬜
+
+### Plugin VSCode
+- Syntax highlighting para XML de Francis Suite
+- Autocompletado de hands y atributos
+- Tree de ejecución en tiempo real (usa EventBus)
+- Navegador de records: por ejemplo si son 1000 records que se pueda navegar 1 a 1, botones anterior/siguiente
+- ventana para visualizar data junto a switch JSON/HTML/TEXT/CSV/XML/PERSONALIZADO en el visualizador/ventana.
+- Variables sensibles muestran *** en logs.
+
+### Storage Provider — Cloud-ready - Elaborar cuando ya todo lo primordial este listo.
+Usa fsspec. Configuración en francis-config.yaml (nunca en git).
+Soporta: local, S3, GCS, Azure Blob.
+
+### fs — Objeto de utilidades - Elaborar cuando ya todo lo primordial este listo.
+${fs.uuid()}, ${fs.now()}, ${fs.env("KEY")}, ${fs.random(1,100)}, ${fs.urlEncode("")}.
+
+### FastAPI REST - Elaborar cuando ya todo lo primordial este listo.
+POST /run, GET /status/:id, GET /context/:id.
+
+### YAML como formato alternativo - Pensar la elaboracion cuando ya todo lo primordial este listo.
+FYamlParser convierte YAML a FNode tree. El engine no cambia nada.
 
 ---
 
 ## Estado del proyecto
 
-| Archivo | Responsabilidad | Estado |
+| Módulo | Responsabilidad | Estado |
 |---|---|---|
-| `core/variables.py` | Tipos de variables | ✅ Creado |
-| `core/nodes.py` | Nodo XML parseado | ✅ Creado |
-| `core/context.py` | Store de variables con scope | ✅ Creado |
-| `core/registry.py` | Registro de hands | ✅ Creado |
-| `core/parser.py` | XML → árbol de FNodes | ✅ Creado |
-| `core/session.py` | Sesión de ejecución | ✅ Creado |
-| `core/events.py` | Sistema de eventos | ✅ Creado |
-| `core/expressions.py` | Motor de expresiones y variables | ✅ Creado |
-| `hands/base.py` | Clase base de hands | ✅ Creado |
-| `core/runtime.py` | Motor de ejecución | ✅ Creado |
+| core/variables.py | Tipos de variables | ✅ |
+| core/nodes.py | Nodo XML parseado | ✅ |
+| core/context.py | Store de variables con scope | ✅ |
+| core/registry.py | Registro de hands | ✅ |
+| core/parser.py | XML a árbol de FNodes | ✅ |
+| core/session.py | Sesión de ejecución | ✅ |
+| core/events.py | Sistema de eventos | ✅ |
+| core/expressions.py | Motor de expresiones | ✅ |
+| hands/base.py | Clase base de hands | ✅ |
+| core/runtime.py | Motor de ejecución | ✅ |
+| hands/core/*.py | Todos los hands core | ✅ |
+| compose | rename de text-format | ✅ |
+| Sistema de records | record-create, record-add, etc. | ⬜ |
+| workflow-param | parámetros de entrada | ⬜ |
+| sensitive | variables sensibles | ⬜ |
+| file-manage nuevo | mkdir, exists, rename, size | ⬜ |
+| Plugin VSCode | syntax highlighting y debug | ⬜ |
+| Nuevas fuentes | pdf, excel, json, api, ia | ⬜ |
+| Storage cloud | fsspec | ⬜ |
+| FastAPI REST | API de ejecución | ⬜ |
+| YAML parser | formato alternativo | ⬜ |

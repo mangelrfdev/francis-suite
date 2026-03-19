@@ -17,8 +17,8 @@ from francis_suite.core.expressions import FrancisExpression
 from francis_suite.hands.base import AbstractHand
 
 
-@hand(tag="text-format")
-class TextFormatHand(AbstractHand):
+@hand(tag="compose")
+class ComposeHand(AbstractHand):
     """
     Interpolates context variables into a text template.
 
@@ -29,7 +29,7 @@ class TextFormatHand(AbstractHand):
         FNodeVariable with the interpolated text.
 
     Example:
-        <text-format>Hello ${name}, you have ${count} messages</text-format>
+        <compose>Hello ${name}, you have ${count} messages</compose>
     """
 
     def execute(self) -> FVariable:

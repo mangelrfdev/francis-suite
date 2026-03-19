@@ -34,7 +34,7 @@ from francis_suite.hands.core import regex
 from francis_suite.hands.core import regex_pattern
 from francis_suite.hands.core import regex_input
 from francis_suite.hands.core import regex_result
-from francis_suite.hands.core import text_format
+from francis_suite.hands.core import compose
 from francis_suite.hands.core import text_split
 from francis_suite.hands.core import evaluate
 from francis_suite.hands.core import exit_

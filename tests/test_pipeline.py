@@ -512,15 +512,15 @@ def test_regex_no_match_returns_empty():
     assert session.status == SessionStatus.COMPLETED
     assert session.context.get("resultado").is_empty()
 
-def test_text_format_interpolates_variables():
-    """text-format should replace ${var} with context values."""
+def test_compose_interpolates_variables():
+    """compose should replace ${var} with context values."""
     xml = """
     <francis-workflow>
         <box-def name="nombre">
             <log>Francis</log>
         </box-def>
         <box-def name="mensaje">
-            <text-format>Hola ${nombre}!</text-format>
+            <compose>Hola ${nombre}!</compose>
         </box-def>
     </francis-workflow>
     """
@@ -529,17 +529,17 @@ def test_text_format_interpolates_variables():
     runtime = FRuntime()
 
     root = parser.parse_string(xml)
-    session = runtime.run(root, workflow_name="test-text-format")
+    session = runtime.run(root, workflow_name="test-compose")
 
     assert session.status == SessionStatus.COMPLETED
     assert session.context.get("mensaje").to_string() == "Hola Francis!"
 
-def test_text_format_unknown_var_stays():
-    """text-format should return empty string for unknown variables."""
+def test_compose_unknown_var_stays():
+    """compose should return empty string for unknown variables."""
     xml = """
     <francis-workflow>
         <box-def name="resultado">
-            <text-format>Valor: ${no-existe}</text-format>
+            <compose>Valor: ${no-existe}</compose>
         </box-def>
     </francis-workflow>
     """
@@ -548,7 +548,7 @@ def test_text_format_unknown_var_stays():
     runtime = FRuntime()
 
     root = parser.parse_string(xml)
-    session = runtime.run(root, workflow_name="test-text-format-unknown")
+    session = runtime.run(root, workflow_name="test-compose-unknown")
 
     assert session.status == SessionStatus.COMPLETED
     assert session.context.get("resultado").to_string() == "Valor: "
@@ -1129,7 +1129,7 @@ def test_shared_box_accessible_as_variable():
     <francis-workflow>
         <shared-box-def name="env">production</shared-box-def>
         <box-def name="resultado">
-            <text-format>entorno: ${env}</text-format>
+            <compose>entorno: ${env}</compose>
         </box-def>
     </francis-workflow>
     """
@@ -1251,3 +1251,22 @@ def test_function_create_replace_true_overwrites():
 
     assert session.status == SessionStatus.COMPLETED
     assert session.context.get("resultado").to_string() == "hola reemplazado"
+
+def test_box_def_resolves_variables_in_body_text():
+    """box-def should resolve ${variables} directly in body text without compose."""
+    xml = """
+    <francis-workflow>
+        <box-def name="base_url">ejemplo.com</box-def>
+        <box-def name="pagina">3</box-def>
+        <box-def name="url">https://${base_url}/page-${pagina}.html</box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-box-def-body-text")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("url").to_string() == "https://ejemplo.com/page-3.html"

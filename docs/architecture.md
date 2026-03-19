@@ -70,7 +70,7 @@ Las variables del contexto solo cambian cuando algo las toca explícitamente.
 - while y loop NO usan new_scope()
 - function-call SÍ usa new_scope()
 
-### REGLA 4 — Compatibilidad universal:
+### REGLA 3 — Compatibilidad universal:
 
 Todo el código debe funcionar igual en Windows, Linux y Mac.
 - Rutas: siempre usar pathlib.Path — nunca strings con / o \ hardcodeados
@@ -290,6 +290,86 @@ POST /run, GET /status/:id, GET /context/:id.
 
 ### YAML como formato alternativo - Pensar la elaboracion cuando ya todo lo primordial este listo.
 FYamlParser convierte YAML a FNode tree. El engine no cambia nada.
+
+---
+
+## Gestión de contenido HTTP por formato
+
+`httpx-call` tiene un atributo `response` que controla cómo se devuelve
+el contenido de la respuesta HTTP.
+
+### Valores de `response`
+
+| Valor | Cuándo usarlo |
+|---|---|
+| `text` (default) | HTML, XML, JSON, CSV, texto plano |
+| `binary` | PDF, Excel, Word, ZIP, imágenes |
+| `stream` | Video, audio, archivos grandes (+50MB) |
+
+### Regla general
+
+```
+Es texto                    → text (default)
+Es binario pequeño/mediano  → binary
+Es binario grande (+50MB)   → stream obligatorio
+Requiere base64             → lo maneja la hand destino internamente
+```
+
+### Base64
+
+Base64 NO es una opción de `response`. Si una API destino requiere
+base64, la hand correspondiente (`use-ia`, etc.) maneja la conversión
+internamente. El usuario nunca necesita convertir a base64 manualmente.
+
+### Flujo completo por tipo de contenido
+
+**HTML:**
+```xml
+<box-def name="html">
+    <httpx-call url="https://ejemplo.com"/>
+</box-def>
+```
+
+**JSON:**
+```xml
+<box-def name="data">
+    <httpx-call url="https://api.ejemplo.com/productos"/>
+</box-def>
+```
+
+**PDF o Excel:**
+```xml
+<box-def name="reporte">
+    <httpx-call url="https://ejemplo.com/reporte.pdf" response="binary"/>
+</box-def>
+<file-write path="downloads/reporte.pdf" encoding="binary">
+    <box name="reporte"/>
+</file-write>
+```
+
+**Imagen para IA:**
+```xml
+<box-def name="foto">
+    <httpx-call url="${foto_url}" response="binary"/>
+</box-def>
+<box-def name="datos">
+    <use-ia model="vision">
+        <box name="foto"/>
+    </use-ia>
+</box-def>
+```
+
+**Video o audio — stream obligatorio:**
+```xml
+<httpx-call url="https://ejemplo.com/video.mp4" response="stream" path="downloads/video.mp4"/>
+```
+
+### `file-download` y `file-upload`
+
+Estos hands fueron eliminados. `httpx-call` con `response="binary"` o
+`response="stream"` + `file-write` cubre todos los casos. Cada cliente
+futuro (playwright, scrapling) manejará sus propias descargas
+internamente.
 
 ---
 

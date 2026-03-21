@@ -7,11 +7,16 @@ Low-code, declarativo, extensible, cloud-ready.
 
 ## ⬜ Ahora — Urgente
 
-- [ ] Eliminar `empty` — no aporta nada
-- [ ] `file-write` — agregar atributo `newline="true"` para salto de línea automático
+- [ ] `httpx-call` — agregar `response="binary"` y `response="stream"`
+- [ ] `file-write` — corregir manejo de binarios con `open("wb")`
 - [ ] `file-manage` — agregar actions: `mkdir`, `exists`, `rename`, `size`
+- [ ] `file-manage` — agregar `overwrite="true/false"` en move y copy
+- [ ] `file-manage` — agregar `safe="true"` en delete para directorios
+- [ ] Eliminar `file-download` y `file-upload` del codebase
 - [ ] Verificar que `evaluate` persiste bien entre iteraciones del loop
-- [ ] Arreglar output de `books_all_pages.xml` — usar `compose` + `newline`
+- [ ] `sensitive` — atributo para box-def y shared-box-def
+- [ ] `workflow-param` — parámetros de entrada al workflow
+- [ ] CLI — `--param` support
 
 ---
 
@@ -158,6 +163,36 @@ francis-suite run scraper.xml --param nombre=Juan --param modo=debug
 
 ---
 
+## ⬜ Pendiente — Observabilidad y control de ejecución
+
+Sistema de control y monitoreo de workflows en ejecución.
+Inspirado en sistemas de producción reales.
+
+### Hands a implementar:
+- `<breakpoint/>` — pausa la ejecución en un punto específico para inspección
+- `<freeze message="..."/>` — congela la tarea con mensaje e ID inspectable
+
+### Estados de ejecución:
+```
+running    — ejecutándose
+completed  — terminó correctamente
+failed     — falló con error
+frozen     — congelado manualmente para inspección — diferente a failed
+```
+
+### Entorno de observabilidad:
+- Cola de tareas — corriendo, en espera, fallidas, frozen
+- Historial de fallos por tarea — cuántas veces falló
+- Logs por tarea con ID inspectable
+- IDs por entorno — prod, dev, test
+- Replicar ejecución local con ID de prod o dev
+
+### Nota:
+Conecta con `EventBus` y `FrancisSession` que ya existen — son la base
+natural para construir esto encima. Implementar cuando FastAPI esté listo.
+
+---
+
 ## ⬜ Pendiente — Nuevas fuentes de datos
 
 Francis Suite extrae data de cualquier fuente:
@@ -165,14 +200,18 @@ Francis Suite extrae data de cualquier fuente:
 - [ ] `pdf-read` — leer y parsear PDFs
 - [ ] `excel-read` — leer Excel y CSV
 - [ ] `json-read` — leer JSON externo
-- [ ] `api-call` — peticiones a REST APIs
 - [ ] `use-ia` — análisis con IA (imágenes, texto) — retorna JSON estructurado
-- [ ] `playwright-call` — automatización de browser
-- [ ] `scrapling-call` — scraping avanzado
+- [ ] `playwright-call` — automatización de browser con su propio manejo de descargas
+- [ ] `scrapling-call` — scraping avanzado con su propio manejo de descargas
 - [ ] `database-call` — consultas a bases de datos
 - [ ] `send-mail` — envío de correos
 - [ ] `ftp-call` — operaciones FTP
 - [ ] `zip` — compresión de archivos
+
+### Nota sobre clientes HTTP:
+Cada cliente maneja sus propias descargas internamente.
+`httpx-call` con `response="binary"` o `response="stream"` cubre todos
+los casos de descarga HTTP. `file-download` fue eliminado.
 
 ---
 
@@ -188,6 +227,12 @@ Francis Suite extrae data de cualquier fuente:
 - Switch de formato: JSON / BEAUTY / TEXT / CSV
 - Variables sensibles muestran `***`
 - Modo preview: corre solo N iteraciones
+- Integración con sistema de observabilidad — ver tareas frozen, fallos, cola
+
+### Sistema de proxy — Alta prioridad cuando implementemos clientes
+- El primer hit de cualquier cliente debe pasar por configuración de proxy
+- Soporta: sin proxy, proxy fijo, rotación automática
+- Pendiente de diseño — no implementar antes de tener clientes listos
 
 ### Storage Provider — Cloud-ready
 ```yaml
@@ -226,9 +271,6 @@ GET  /context/:id — variables del contexto en tiempo real
 El engine no cambia nada — solo el parser cambia.
 XML sigue siendo válido y soportado.
 
-### Proxy management
-Pool de proxies con rotación automática.
-
 ---
 
 ## ✅ Completado
@@ -239,11 +281,17 @@ Pool de proxies con rotación automática.
 - [x] Hands: log, box-def, box, sleep, httpx-call, convert-html-to-xml
 - [x] xpath-extract, loop, while, if, else, case, try, catch, exit
 - [x] function-create (replace), function-call, function-param, function-return
-- [x] regex, text-format, text-split, evaluate, build-list, call-workflow
+- [x] regex, compose, text-split, evaluate, build-list, call-workflow
 - [x] convert-json-to-xml, convert-xml-to-json
-- [x] file-read, file-write, file-download, file-upload, file-manage
+- [x] file-read, file-write, file-manage
 - [x] shared-box-def, shared-box con `replace`
 - [x] Scoping: "si no se toca, no cambia"
 - [x] engine.resolve() en todos los atributos
-- [x] 54 tests pasando
+- [x] Compatibilidad universal — pathlib, as_posix(), utf-8 explícito
+- [x] file-write — newline="true"
+- [x] file-manage — fix _list filtra directorios, fix _move/_copy sin str()
+- [x] file-write — context manager con with
+- [x] text-format renombrado a compose
+- [x] ADR-002 — decisión de formatos HTTP documentada
+- [x] 55 tests pasando
 - [x] Ejemplo books_all_pages.xml — 1000 libros extraídos

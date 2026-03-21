@@ -51,8 +51,7 @@
                     <evaluate>${contador} + 1</evaluate>
                 </box-def>
                 <log>contador: ${contador}</log>
-                <file-write path="output/todos_los_libros.txt" append="true">${contador} - Title: ${titulo} - Price: ${precio}
-</file-write>
+                <file-write path="output/todos_los_libros.txt" append="true" newline="true">${contador} - Title: ${titulo} - Price: ${precio}</file-write>
             </loop-body>
         </loop>
 
@@ -67,7 +66,7 @@
         </if>
         <else>
             <box-def name="url_actual">
-                <text-format>${base_url}${next_href}</text-format>
+                <compose>${base_url}${next_href}</compose>
             </box-def>
             <log>Siguiente URL: ${url_actual}</log>
         </else>

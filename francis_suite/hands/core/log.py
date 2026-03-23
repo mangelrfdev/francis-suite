@@ -3,16 +3,19 @@ hands/core/log.py
 
 LogHand implements the <log> tag.
 Prints a message to the console during workflow execution.
+Sensitive variables are automatically masked in the output.
 
 Usage in XML:
     <log>Hello world</log>
-    <log>${mi-variable}</log>
+    <log>${ciudad}</log>
+    <log>${api_key}</log>        — shows ***masked***
     <log level="error">Something went wrong</log>
 """
 
 from __future__ import annotations
 from francis_suite.core.registry import hand
 from francis_suite.core.variables import FVariable, FNodeVariable
+from francis_suite.core.expressions import FrancisExpression
 from francis_suite.hands.base import AbstractHand
 
 
@@ -23,15 +26,19 @@ VALID_LEVELS = ("info", "debug", "warning", "error")
 class LogHand(AbstractHand):
     """
     Prints a message to stdout during workflow execution.
+    Sensitive variables are automatically masked — shows *** instead of real value.
 
     Attributes:
         level (optional): info | debug | warning | error. Default: info.
 
     Returns:
-        FNodeVariable with the message that was logged.
+        FNodeVariable with the real message (unmasked) — for pipeline use.
+        The printed output uses masked values for sensitive variables.
 
-    Example:
+    Examples:
         <log>Scraping started</log>
+        <log>Ciudad: ${ciudad}</log>
+        <log>API Key: ${api_key}</log>   — prints: API Key: *******xyz
         <log level="error">Something failed</log>
     """
 
@@ -44,13 +51,24 @@ class LogHand(AbstractHand):
                 f"Valid options: {', '.join(VALID_LEVELS)}"
             )
 
-        if self.has_children():
-            message = self.execute_children().to_string()
-        else:
-            message = self.resolve_body_text()
+        engine = FrancisExpression(self.context)
 
-        self._print(level, message)
-        return FNodeVariable(message)
+        if self.has_children():
+            # execute children once — get both real and display values
+            result          = self.execute_children()
+            real_message    = result.to_string()
+            display_message = result.to_display()
+        else:
+            raw = self.get_body_text()
+            # resolve with real values for pipeline use
+            real_message    = engine.resolve(raw) if raw else ""
+            # resolve with display values for printing
+            display_message = engine.resolve_display(raw) if raw else ""
+
+        self._print(level, display_message)
+
+        # return real value so pipeline can use it
+        return FNodeVariable(real_message)
 
     def _print(self, level: str, message: str) -> None:
         prefix = {

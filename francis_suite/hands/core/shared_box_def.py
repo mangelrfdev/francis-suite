@@ -12,14 +12,19 @@ Usage in XML:
     <!-- siempre sobreescribe -->
     <shared-box-def name="env" replace="true">staging</shared-box-def>
 
-    <!-- usar como variable normal -->
-    <if condition="${env} == 'production'">...</if>
-    <log>${env}</log>
+    <!-- automatic sensitive — detected by name -->
+    <shared-box-def name="api_key">secreto</shared-box-def>
+
+    <!-- explicit sensitive -->
+    <shared-box-def name="codigo_cliente" sensitive="true">abc123</shared-box-def>
+
+    <!-- force not sensitive -->
+    <shared-box-def name="token_count" sensitive="false">100</shared-box-def>
 """
 
 from __future__ import annotations
 from francis_suite.core.registry import hand
-from francis_suite.core.variables import FVariable, FEmptyVariable, FNodeVariable
+from francis_suite.core.variables import FVariable, FEmptyVariable, FNodeVariable, is_sensitive_name
 from francis_suite.hands.base import AbstractHand
 
 
@@ -33,36 +38,44 @@ class SharedBoxDefHand(AbstractHand):
     Accessible everywhere — inside functions, loops, and across
     call-workflow calls.
 
-    If a local <box-def> has the same name, the local variable
-    takes precedence with ${variable} syntax. Use <shared-box>
-    to read the global value explicitly.
-
     Attributes:
         name (required): name of the variable to store.
         replace (optional): whether to replace if already exists. Default: true.
             replace="true"  — always overwrite.
             replace="false" — only create if it does not exist yet.
+        sensitive (optional): whether to mask the value in logs and UI.
+            sensitive="true"  — always mask.
+            sensitive="false" — never mask.
+            Default: auto-detected by variable name.
+
+    Auto-sensitive names: api_key, apikey, token, password, passwd,
+    secret, credential, auth, private_key, access_key.
 
     Returns:
         The stored value.
 
     Examples:
         <shared-box-def name="env" replace="false">production</shared-box-def>
-        <shared-box-def name="env" replace="true">staging</shared-box-def>
-
-        <if condition="${env} == 'production'">...</if>
-        <while condition="${env.toBoolean()}">...</while>
-        <log>${env}</log>
+        <shared-box-def name="api_key">secreto</shared-box-def>
+        <shared-box-def name="codigo_cliente" sensitive="true">abc123</shared-box-def>
+        <shared-box-def name="token_count" sensitive="false">100</shared-box-def>
     """
 
     def execute(self) -> FVariable:
-        name = self.require_attr("name")
+        name    = self.require_attr("name")
         replace = self.attr("replace", "true").lower() == "true"
 
         # si replace=false y ya existe en global, no tocar
         existing = self.context.get_shared_box(name)
         if not replace and not existing.is_empty():
             return existing
+
+        # resolve sensitive flag
+        sensitive_attr = self.attr("sensitive", None)
+        if sensitive_attr is not None:
+            sensitive = sensitive_attr.lower() == "true"
+        else:
+            sensitive = is_sensitive_name(name)
 
         if self.has_children():
             result = self.execute_children()
@@ -72,6 +85,10 @@ class SharedBoxDefHand(AbstractHand):
                 result = FNodeVariable(text)
             else:
                 result = FEmptyVariable()
+
+        # wrap result as sensitive if needed
+        if sensitive and isinstance(result, FNodeVariable):
+            result = result.as_sensitive()
 
         self.context.set_shared_box(name, result)
         return result

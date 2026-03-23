@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<francis-workflow>
+
+    <!-- automático por nombre -->
+    <shared-box-def name="api_key">sk-abc123xyz</shared-box-def>
+
+    <!-- explícito -->
+    <shared-box-def name="codigo_cliente" sensitive="true">abc123</shared-box-def>
+
+    <!-- forzar no-sensible -->
+    <shared-box-def name="token_count" sensitive="false">100</shared-box-def>
+
+    <!-- normal -->
+    <shared-box-def name="ciudad">santiago</shared-box-def>
+
+    <log>API Key: ${api_key}</log>
+    <log>Codigo Cliente: ${codigo_cliente}</log>
+    <log>Token Count: ${token_count}</log>
+    <log>Ciudad: ${ciudad}</log>
+
+</francis-workflow>

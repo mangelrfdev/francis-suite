@@ -1938,3 +1938,103 @@ def test_file_manage_list_search_in_subfolders(tmp_path):
     assert session.status == SessionStatus.COMPLETED
     result = session.context.get("fotos")
     assert len(result.to_list()) == 2
+
+def test_sensitive_auto_by_name():
+    """Variables with sensitive names should be masked in display."""
+    xml = """
+    <francis-workflow>
+        <shared-box-def name="api_key">sk-abc123xyz</shared-box-def>
+        <box-def name="resultado">
+            <log>Key: ${api_key}</log>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-sensitive-auto")
+
+    assert session.status == SessionStatus.COMPLETED
+    # to_string() returns real value — engine uses it internally
+    assert session.context.get("api_key").to_string() == "sk-abc123xyz"
+    # to_display() returns masked value — logs and UI use it
+    assert session.context.get("api_key").to_display() == "*******xyz"
+
+
+def test_sensitive_explicit_true():
+    """Variables with sensitive=true should be masked in display."""
+    xml = """
+    <francis-workflow>
+        <box-def name="codigo_cliente" sensitive="true">abc123</box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-sensitive-explicit")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("codigo_cliente").to_string() == "abc123"
+    assert session.context.get("codigo_cliente").to_display() == "*******123"
+
+
+def test_sensitive_explicit_false():
+    """Variables with sensitive=false should never be masked."""
+    xml = """
+    <francis-workflow>
+        <box-def name="token_count" sensitive="false">100</box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-sensitive-false")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("token_count").to_string() == "100"
+    assert session.context.get("token_count").to_display() == "100"
+
+
+def test_sensitive_short_value():
+    """Sensitive variables with short values should show 10 asterisks."""
+    xml = """
+    <francis-workflow>
+        <box-def name="api_key">ab</box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-sensitive-short")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("api_key").to_string() == "ab"
+    assert session.context.get("api_key").to_display() == "**********"
+
+
+def test_sensitive_shared_box_def():
+    """shared-box-def should also support sensitive flag."""
+    xml = """
+    <francis-workflow>
+        <shared-box-def name="password">mi_clave_secreta</shared-box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-sensitive-shared")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("password").to_string() == "mi_clave_secreta"
+    assert "***" in session.context.get("password").to_display()
+    assert "mi_clave_secreta" not in session.context.get("password").to_display()

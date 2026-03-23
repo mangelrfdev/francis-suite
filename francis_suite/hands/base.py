@@ -49,14 +49,14 @@ class AbstractHand(ABC):
             path = engine.resolve(self.attr("path", "output/"))
 
         Attributes that DO need resolve():
-            - Paths and URLs: path, url, dest
+            - Paths and URLs: path, url, to
             - Expressions: expression (XPath)
             - Times: ms, timeout
             - Dynamic names: name in <function-call>
             - Any value the user might want to parametrize
 
         Attributes that do NOT need resolve():
-            - Boolean flags: append, mkdir, recursive, pretty
+            - Boolean flags: append, mkdir, pretty
             - Fixed choices: level (info/debug/warning/error)
             - Internal variable names: name in <box-def>, <function-create>
 
@@ -76,6 +76,11 @@ class AbstractHand(ABC):
             Iteration 2: extra = "found"     <- touched
             Iteration 3: titulo = "Book C"   <- touched
             Iteration 3: extra = "found"     <- NOT touched, keeps "found" from iteration 2
+
+    RULE 3 — Sensitive variables:
+        Never use resolve_body_text() or resolve() in display contexts like logs.
+        Use resolve_body_text_display() or engine.resolve_display() instead.
+        This ensures sensitive variables are masked automatically.
     """
 
     def __init__(self, node: FNode, session: FrancisSession, runtime) -> None:
@@ -151,11 +156,11 @@ class AbstractHand(ABC):
     def resolve_body_text(self) -> str:
         """
         Get the text content of this node with variables resolved.
-        Use this instead of get_body_text() when the body may contain ${variables}.
+        Returns real values — use for internal engine processing.
 
         Example:
-            <log>${nombre}</log>
-            resolve_body_text() → "Francis"
+            <compose>${base_url}/page-${pagina}.html</compose>
+            resolve_body_text() → "https://ejemplo.com/page-3.html"
         """
         from francis_suite.core.expressions import FrancisExpression
         raw = self.get_body_text()
@@ -163,6 +168,23 @@ class AbstractHand(ABC):
             return ""
         engine = FrancisExpression(self.context)
         return engine.resolve(raw)
+
+    def resolve_body_text_display(self) -> str:
+        """
+        Get the text content of this node with variables resolved for display.
+        Sensitive variables are automatically masked.
+        Use this in logs and any user-facing output.
+
+        Example:
+            <log>Key: ${api_key}</log>
+            resolve_body_text_display() → "Key: *******xyz"
+        """
+        from francis_suite.core.expressions import FrancisExpression
+        raw = self.get_body_text()
+        if not raw:
+            return ""
+        engine = FrancisExpression(self.context)
+        return engine.resolve_display(raw)
 
     def has_children(self) -> bool:
         """Return True if this node has child elements."""

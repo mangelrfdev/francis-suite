@@ -43,10 +43,6 @@ _INTERNAL_TAGS = {
 
     # sleep
     "sleep-min", "sleep-avg", "sleep-max",
-
-    # file-manage
-    "file-filter", "file-type", "file-recursive",
-    "file-overwrite", "file-force", "file-unit",
 }
 
 
@@ -56,7 +52,15 @@ class FRuntime:
 
     Usage:
         runtime = FRuntime()
+
+        # Simple run — creates a new session internally
         session = runtime.run(root_node, workflow_name="my-workflow")
+
+        # Run with a pre-built session — useful for injecting variables before execution
+        session = FrancisSession(workflow_name="my-workflow")
+        session.context.set_shared_box("ciudad", FNodeVariable("santiago"))
+        session = runtime.run_session(root_node, session)
+
         print(session.status)   # SessionStatus.COMPLETED
         print(session.duration) # 1.23
     """
@@ -81,17 +85,37 @@ class FRuntime:
     ) -> FrancisSession:
         """
         Execute a workflow from its root FNode.
+        Creates a new session internally.
         Returns the session with final status and metrics.
 
         Always returns a session — never raises.
         Check session.status and session.error for results.
         """
         session = FrancisSession(workflow_name=workflow_name)
+        return self.run_session(root, session)
+
+    def run_session(
+        self,
+        root: FNode,
+        session: FrancisSession,
+    ) -> FrancisSession:
+        """
+        Execute a workflow using a pre-built session.
+        Useful when variables need to be injected before execution.
+
+        Always returns the session — never raises.
+        Check session.status and session.error for results.
+
+        Usage:
+            session = FrancisSession(workflow_name="my-workflow")
+            session.context.set_shared_box("ciudad", FNodeVariable("santiago"))
+            session = runtime.run_session(root, session)
+        """
         session.start()
 
         self._bus.emit(SessionStartedEvent(
             session_id=session.id,
-            workflow_name=workflow_name,
+            workflow_name=session.workflow_name,
         ))
 
         try:

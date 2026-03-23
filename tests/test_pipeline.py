@@ -1005,7 +1005,7 @@ def test_file_manage_copy(tmp_path):
 
     xml = f"""
     <francis-workflow>
-        <file-manage action="copy" path="{source.as_posix()}" dest="{dest.as_posix()}"/>
+        <file-manage action="copy" path="{source.as_posix()}" to="{dest.as_posix()}"/>
     </francis-workflow>
     """
 
@@ -1027,7 +1027,7 @@ def test_file_manage_move(tmp_path):
 
     xml = f"""
     <francis-workflow>
-        <file-manage action="move" path="{source.as_posix()}" dest="{dest.as_posix()}"/>
+        <file-manage action="move" path="{source.as_posix()}" to="{dest.as_posix()}"/>
     </francis-workflow>
     """
 
@@ -1078,7 +1078,6 @@ def test_shared_box_def_stores_in_global_scope():
     assert session.status == SessionStatus.COMPLETED
     assert session.context.get("resultado").to_string() == "production"
 
-
 def test_shared_box_def_replace_false_does_not_overwrite():
     """shared-box-def with replace=false should not overwrite existing value."""
     xml = """
@@ -1099,7 +1098,6 @@ def test_shared_box_def_replace_false_does_not_overwrite():
 
     assert session.status == SessionStatus.COMPLETED
     assert session.context.get("resultado").to_string() == "production"
-
 
 def test_shared_box_def_replace_true_overwrites():
     """shared-box-def with replace=true should overwrite existing value."""
@@ -1122,7 +1120,6 @@ def test_shared_box_def_replace_true_overwrites():
     assert session.status == SessionStatus.COMPLETED
     assert session.context.get("resultado").to_string() == "staging"
 
-
 def test_shared_box_accessible_as_variable():
     """shared-box-def variable should be accessible via ${variable} syntax."""
     xml = """
@@ -1142,7 +1139,6 @@ def test_shared_box_accessible_as_variable():
 
     assert session.status == SessionStatus.COMPLETED
     assert session.context.get("resultado").to_string() == "entorno: production"
-
 
 def test_shared_box_accessible_inside_function():
     """shared-box-def should be accessible inside functions."""
@@ -1169,7 +1165,6 @@ def test_shared_box_accessible_inside_function():
     assert session.status == SessionStatus.COMPLETED
     assert session.context.get("resultado").to_string() == "production"
 
-
 def test_shared_box_used_in_condition():
     """shared-box-def should be usable in if conditions."""
     xml = """
@@ -1191,7 +1186,6 @@ def test_shared_box_used_in_condition():
 
     assert session.status == SessionStatus.COMPLETED
     assert session.context.get("resultado").to_string() == "activo"
-
 
 def test_function_create_replace_false_does_not_overwrite():
     """function-create with replace=false should not overwrite existing function."""
@@ -1221,7 +1215,6 @@ def test_function_create_replace_false_does_not_overwrite():
 
     assert session.status == SessionStatus.COMPLETED
     assert session.context.get("resultado").to_string() == "hola original"
-
 
 def test_function_create_replace_true_overwrites():
     """function-create with replace=true should overwrite existing function."""

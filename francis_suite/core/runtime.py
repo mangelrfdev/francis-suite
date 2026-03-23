@@ -29,11 +29,24 @@ import francis_suite.hands  # noqa: F401
 
 # Internal child tags — never executed directly by the runtime
 _INTERNAL_TAGS = {
+    # loop
     "loop-list", "loop-body",
+
+    # regex
     "regex-pattern", "regex-input", "regex-result",
+
+    # httpx
     "httpx-header", "httpx-param",
+
+    # functions
     "function-param",
+
+    # sleep
     "sleep-min", "sleep-avg", "sleep-max",
+
+    # file-manage
+    "file-filter", "file-type", "file-recursive",
+    "file-overwrite", "file-force", "file-unit",
 }
 
 

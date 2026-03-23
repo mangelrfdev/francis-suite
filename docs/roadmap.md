@@ -17,6 +17,8 @@ Low-code, declarativo, extensible, cloud-ready.
 - [ ] `sensitive` — atributo para box-def y shared-box-def
 - [ ] `workflow-param` — parámetros de entrada al workflow
 - [ ] CLI — `--param` support
+- [ ] `convert-to-base64` — convierte binary a base64 string
+- [ ] `convert-from-base64` — convierte base64 string a binary
 
 ---
 

@@ -1290,3 +1290,164 @@ def test_file_write_newline(tmp_path):
 
     assert session.status == SessionStatus.COMPLETED
     assert output.read_text() == "linea uno\nlinea dos\n"
+
+def test_httpx_call_binary_response(tmp_path):
+    """httpx-call with response=binary should return bytes."""
+    fake_pdf = b"%PDF-1.4 fake pdf content"
+
+    xml = """
+    <francis-workflow>
+        <box-def name="reporte">
+            <httpx-call url="https://example.com/report.pdf" response="binary"/>
+        </box-def>
+    </francis-workflow>
+    """
+
+    with respx.mock:
+        respx.get("https://example.com/report.pdf").mock(
+            return_value=httpx.Response(200, content=fake_pdf)
+        )
+
+        parser = FParser()
+        runtime = FRuntime()
+
+        root = parser.parse_string(xml)
+        session = runtime.run(root, workflow_name="test-httpx-binary")
+
+    assert session.status == SessionStatus.COMPLETED
+    result = session.context.get("reporte")
+    assert not result.is_empty()
+    assert result.value == fake_pdf
+
+
+def test_httpx_call_binary_write_to_disk(tmp_path):
+    """httpx-call binary + file-write binary should save file correctly."""
+    fake_pdf = b"%PDF-1.4 fake pdf content"
+    output = tmp_path / "report.pdf"
+
+    xml = f"""
+    <francis-workflow>
+        <box-def name="reporte">
+            <httpx-call url="https://example.com/report.pdf" response="binary"/>
+        </box-def>
+        <file-write path="{output.as_posix()}" encoding="binary">
+            <box name="reporte"/>
+        </file-write>
+    </francis-workflow>
+    """
+
+    with respx.mock:
+        respx.get("https://example.com/report.pdf").mock(
+            return_value=httpx.Response(200, content=fake_pdf)
+        )
+
+        parser = FParser()
+        runtime = FRuntime()
+
+        root = parser.parse_string(xml)
+        session = runtime.run(root, workflow_name="test-httpx-binary-write")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert output.exists()
+    assert output.read_bytes() == fake_pdf
+
+
+def test_httpx_call_stream_saves_file(tmp_path):
+    """httpx-call stream should save file to disk and return path."""
+    fake_content = b"fake video content chunk"
+    output = tmp_path / "video.mp4"
+
+    xml = f"""
+    <francis-workflow>
+        <box-def name="archivo">
+            <httpx-call url="https://example.com/video.mp4" response="stream" path="{output.as_posix()}"/>
+        </box-def>
+    </francis-workflow>
+    """
+
+    with respx.mock:
+        respx.get("https://example.com/video.mp4").mock(
+            return_value=httpx.Response(200, content=fake_content)
+        )
+
+        parser = FParser()
+        runtime = FRuntime()
+
+        root = parser.parse_string(xml)
+        session = runtime.run(root, workflow_name="test-httpx-stream")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert output.exists()
+    assert output.read_bytes() == fake_content
+
+    # tmp file should not exist after successful download
+    tmp_file = output.with_suffix(output.suffix + ".tmp")
+    assert not tmp_file.exists()
+
+    # box should contain the path where file was saved
+    result = session.context.get("archivo")
+    assert not result.is_empty()
+    assert result.to_string() == output.as_posix()
+
+
+def test_httpx_call_stream_cleans_tmp_on_failure(tmp_path):
+    """httpx-call stream should remove .tmp file if download fails."""
+    output = tmp_path / "video.mp4"
+    tmp_file = output.with_suffix(output.suffix + ".tmp")
+
+    xml = f"""
+    <francis-workflow>
+        <httpx-call url="https://example.com/video.mp4" response="stream" path="{output.as_posix()}"/>
+    </francis-workflow>
+    """
+
+    with respx.mock:
+        respx.get("https://example.com/video.mp4").mock(
+            return_value=httpx.Response(500)
+        )
+
+        parser = FParser()
+        runtime = FRuntime()
+
+        root = parser.parse_string(xml)
+        session = runtime.run(root, workflow_name="test-httpx-stream-fail")
+
+    assert session.status == SessionStatus.FAILED
+    assert not output.exists()
+    assert not tmp_file.exists()
+
+
+def test_httpx_call_invalid_response_fails():
+    """httpx-call with invalid response attribute should fail."""
+    xml = """
+    <francis-workflow>
+        <httpx-call url="https://example.com" response="invalid"/>
+    </francis-workflow>
+    """
+
+    with respx.mock:
+        parser = FParser()
+        runtime = FRuntime()
+
+        root = parser.parse_string(xml)
+        session = runtime.run(root, workflow_name="test-httpx-invalid-response")
+
+    assert session.status == SessionStatus.FAILED
+
+
+def test_httpx_call_stream_missing_path_fails():
+    """httpx-call stream without path attribute should fail."""
+    xml = """
+    <francis-workflow>
+        <httpx-call url="https://example.com/video.mp4" response="stream"/>
+    </francis-workflow>
+    """
+
+    with respx.mock:
+        parser = FParser()
+        runtime = FRuntime()
+
+        root = parser.parse_string(xml)
+        session = runtime.run(root, workflow_name="test-httpx-stream-no-path")
+
+    assert session.status == SessionStatus.FAILED

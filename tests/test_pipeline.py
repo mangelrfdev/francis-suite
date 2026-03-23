@@ -1444,3 +1444,497 @@ def test_httpx_call_stream_missing_path_fails():
         session = runtime.run(root, workflow_name="test-httpx-stream-no-path")
 
     assert session.status == SessionStatus.FAILED
+
+def test_file_manage_mkdir_creates_directory(tmp_path):
+    """file-manage mkdir should create a directory."""
+    new_dir = tmp_path / "nueva_carpeta"
+
+    xml = f"""
+    <francis-workflow>
+        <file-manage action="mkdir" path="{new_dir.as_posix()}"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-mkdir")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert new_dir.exists()
+    assert new_dir.is_dir()
+
+
+def test_file_manage_mkdir_skips_if_exists(tmp_path):
+    """file-manage mkdir should not fail if directory already exists."""
+    existing_dir = tmp_path / "existente"
+    existing_dir.mkdir()
+
+    xml = f"""
+    <francis-workflow>
+        <file-manage action="mkdir" path="{existing_dir.as_posix()}"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-mkdir-exists")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert existing_dir.exists()
+
+
+def test_file_manage_mkdir_creates_nested_directories(tmp_path):
+    """file-manage mkdir should create all parent directories."""
+    nested = tmp_path / "nivel1" / "nivel2" / "nivel3"
+
+    xml = f"""
+    <francis-workflow>
+        <file-manage action="mkdir" path="{nested.as_posix()}"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-mkdir-nested")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert nested.exists()
+    assert nested.is_dir()
+
+
+def test_file_manage_check_exists_true(tmp_path):
+    """file-manage check-exists should return true when file exists."""
+    archivo = tmp_path / "reporte.pdf"
+    archivo.write_text("contenido")
+
+    xml = f"""
+    <francis-workflow>
+        <box-def name="existe">
+            <file-manage action="check-exists" path="{archivo.as_posix()}"/>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-check-exists-true")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("existe").to_string() == "true"
+
+
+def test_file_manage_check_exists_false(tmp_path):
+    """file-manage check-exists should return false when file does not exist."""
+    archivo = tmp_path / "no_existe.pdf"
+
+    xml = f"""
+    <francis-workflow>
+        <box-def name="existe">
+            <file-manage action="check-exists" path="{archivo.as_posix()}"/>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-check-exists-false")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("existe").to_string() == "false"
+
+
+def test_file_manage_check_exists_directory(tmp_path):
+    """file-manage check-exists should return true for directories."""
+    carpeta = tmp_path / "fotos"
+    carpeta.mkdir()
+
+    xml = f"""
+    <francis-workflow>
+        <box-def name="existe">
+            <file-manage action="check-exists" path="{carpeta.as_posix()}"/>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-check-exists-dir")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("existe").to_string() == "true"
+
+
+def test_file_manage_get_size_file(tmp_path):
+    """file-manage get-size should return file size in bytes."""
+    archivo = tmp_path / "reporte.txt"
+    archivo.write_text("contenido de prueba", encoding="utf-8")
+
+    xml = f"""
+    <francis-workflow>
+        <box-def name="tamano">
+            <file-manage action="get-size" path="{archivo.as_posix()}"/>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-get-size-file")
+
+    assert session.status == SessionStatus.COMPLETED
+    result = session.context.get("tamano").to_string()
+    assert "bytes" in result
+
+
+def test_file_manage_get_size_auto_format(tmp_path):
+    """file-manage get-size with size-format=auto should return formatted size."""
+    archivo = tmp_path / "reporte.txt"
+    archivo.write_text("contenido de prueba", encoding="utf-8")
+
+    xml = f"""
+    <francis-workflow>
+        <box-def name="tamano">
+            <file-manage action="get-size" path="{archivo.as_posix()}" size-format="auto"/>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-get-size-auto")
+
+    assert session.status == SessionStatus.COMPLETED
+    result = session.context.get("tamano").to_string()
+    assert result != ""
+
+
+def test_file_manage_get_size_not_found_fails(tmp_path):
+    """file-manage get-size should fail when file does not exist."""
+    xml = f"""
+    <francis-workflow>
+        <file-manage action="get-size" path="{(tmp_path / 'no_existe.txt').as_posix()}"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-get-size-not-found")
+
+    assert session.status == SessionStatus.FAILED
+
+
+def test_file_manage_rename_file(tmp_path):
+    """file-manage rename should rename a file."""
+    source = tmp_path / "foto_1.jpg"
+    dest   = tmp_path / "foto_001.jpg"
+    source.write_text("contenido foto")
+
+    xml = f"""
+    <francis-workflow>
+        <file-manage action="rename" path="{source.as_posix()}" to="{dest.as_posix()}"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-rename")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert dest.exists()
+    assert not source.exists()
+    assert dest.read_text() == "contenido foto"
+
+
+def test_file_manage_rename_not_found_fails(tmp_path):
+    """file-manage rename should fail when source does not exist."""
+    xml = f"""
+    <francis-workflow>
+        <file-manage action="rename"
+            path="{(tmp_path / 'no_existe.jpg').as_posix()}"
+            to="{(tmp_path / 'nuevo.jpg').as_posix()}"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-rename-not-found")
+
+    assert session.status == SessionStatus.FAILED
+
+
+def test_file_manage_rename_destination_exists_fails(tmp_path):
+    """file-manage rename should fail when destination already exists."""
+    source = tmp_path / "foto_1.jpg"
+    dest   = tmp_path / "foto_001.jpg"
+    source.write_text("original")
+    dest.write_text("ya existe")
+
+    xml = f"""
+    <francis-workflow>
+        <file-manage action="rename" path="{source.as_posix()}" to="{dest.as_posix()}"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-rename-dest-exists")
+
+    assert session.status == SessionStatus.FAILED
+
+
+def test_file_manage_rename_different_directory_fails(tmp_path):
+    """file-manage rename should fail when to is in a different directory."""
+    source  = tmp_path / "foto.jpg"
+    subdir  = tmp_path / "sub"
+    subdir.mkdir()
+    dest    = subdir / "foto.jpg"
+    source.write_text("contenido")
+
+    xml = f"""
+    <francis-workflow>
+        <file-manage action="rename" path="{source.as_posix()}" to="{dest.as_posix()}"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-rename-diff-dir")
+
+    assert session.status == SessionStatus.FAILED
+
+
+def test_file_manage_delete_non_empty_fails(tmp_path):
+    """file-manage delete should fail on non-empty directory without force-delete."""
+    carpeta = tmp_path / "fotos"
+    carpeta.mkdir()
+    (carpeta / "foto.jpg").write_text("foto")
+
+    xml = f"""
+    <francis-workflow>
+        <file-manage action="delete" path="{carpeta.as_posix()}"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-delete-non-empty")
+
+    assert session.status == SessionStatus.FAILED
+    assert carpeta.exists()
+
+
+def test_file_manage_delete_force_deletes_non_empty(tmp_path):
+    """file-manage delete with force-delete=true should delete non-empty directory."""
+    carpeta = tmp_path / "fotos"
+    carpeta.mkdir()
+    (carpeta / "foto.jpg").write_text("foto")
+
+    xml = f"""
+    <francis-workflow>
+        <file-manage action="delete" path="{carpeta.as_posix()}" force-delete="true"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-delete-force")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert not carpeta.exists()
+
+
+def test_file_manage_copy_destination_exists_fails(tmp_path):
+    """file-manage copy should fail when destination exists without force-copy."""
+    source = tmp_path / "original.txt"
+    dest   = tmp_path / "copia.txt"
+    source.write_text("original")
+    dest.write_text("ya existe")
+
+    xml = f"""
+    <francis-workflow>
+        <file-manage action="copy" path="{source.as_posix()}" to="{dest.as_posix()}"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-copy-dest-exists")
+
+    assert session.status == SessionStatus.FAILED
+
+
+def test_file_manage_copy_force_overwrites(tmp_path):
+    """file-manage copy with force-copy=true should overwrite destination."""
+    source = tmp_path / "original.txt"
+    dest   = tmp_path / "copia.txt"
+    source.write_text("contenido nuevo")
+    dest.write_text("contenido viejo")
+
+    xml = f"""
+    <francis-workflow>
+        <file-manage action="copy" path="{source.as_posix()}" to="{dest.as_posix()}" force-copy="true"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-copy-force")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert dest.read_text() == "contenido nuevo"
+
+
+def test_file_manage_move_destination_exists_fails(tmp_path):
+    """file-manage move should fail when destination exists without force-move."""
+    source = tmp_path / "original.txt"
+    dest   = tmp_path / "movido.txt"
+    source.write_text("original")
+    dest.write_text("ya existe")
+
+    xml = f"""
+    <francis-workflow>
+        <file-manage action="move" path="{source.as_posix()}" to="{dest.as_posix()}"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-move-dest-exists")
+
+    assert session.status == SessionStatus.FAILED
+
+
+def test_file_manage_move_force_overwrites(tmp_path):
+    """file-manage move with force-move=true should overwrite destination."""
+    source = tmp_path / "original.txt"
+    dest   = tmp_path / "movido.txt"
+    source.write_text("contenido nuevo")
+    dest.write_text("contenido viejo")
+
+    xml = f"""
+    <francis-workflow>
+        <file-manage action="move" path="{source.as_posix()}" to="{dest.as_posix()}" force-move="true"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-move-force")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert dest.read_text() == "contenido nuevo"
+    assert not source.exists()
+
+
+def test_file_manage_list_type_folders(tmp_path):
+    """file-manage list with type=folders should return only directories."""
+    (tmp_path / "foto.jpg").write_text("foto")
+    (tmp_path / "subcarpeta").mkdir()
+
+    xml = f"""
+    <francis-workflow>
+        <box-def name="carpetas">
+            <file-manage action="list" path="{tmp_path.as_posix()}" type="folders"/>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-list-folders")
+
+    assert session.status == SessionStatus.COMPLETED
+    result = session.context.get("carpetas")
+    items  = result.to_list()
+    assert len(items) == 1
+    assert items[0].to_string().endswith("/")
+
+
+def test_file_manage_list_type_all(tmp_path):
+    """file-manage list with type=all should return files and directories."""
+    (tmp_path / "foto.jpg").write_text("foto")
+    (tmp_path / "subcarpeta").mkdir()
+
+    xml = f"""
+    <francis-workflow>
+        <box-def name="todo">
+            <file-manage action="list" path="{tmp_path.as_posix()}" type="all"/>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-list-all")
+
+    assert session.status == SessionStatus.COMPLETED
+    result = session.context.get("todo")
+    assert len(result.to_list()) == 2
+
+
+def test_file_manage_list_search_in_subfolders(tmp_path):
+    """file-manage list with search-in-subfolders=true should find files in subdirectories."""
+    (tmp_path / "foto1.jpg").write_text("foto1")
+    subdir = tmp_path / "sub"
+    subdir.mkdir()
+    (subdir / "foto2.jpg").write_text("foto2")
+
+    xml = f"""
+    <francis-workflow>
+        <box-def name="fotos">
+            <file-manage action="list" path="{tmp_path.as_posix()}" filter="*.jpg" search-in-subfolders="true"/>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-list-subfolders")
+
+    assert session.status == SessionStatus.COMPLETED
+    result = session.context.get("fotos")
+    assert len(result.to_list()) == 2

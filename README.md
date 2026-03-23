@@ -145,8 +145,6 @@ examples/
 | `<convert-xml-to-json>` | Convert XML to JSON |
 | `<file-read>` | Read a file from disk |
 | `<file-write>` | Write content to a file |
-| `<file-download>` | Download a file from a URL |
-| `<file-upload>` | Upload a file to a URL |
 | `<file-manage>` | Delete, move, copy, or list files |
 
 ## Expression Engine

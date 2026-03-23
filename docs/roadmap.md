@@ -12,7 +12,6 @@ Low-code, declarativo, extensible, cloud-ready.
 - [ ] `file-manage` — agregar actions: `mkdir`, `exists`, `rename`, `size`
 - [ ] `file-manage` — agregar `overwrite="true/false"` en move y copy
 - [ ] `file-manage` — agregar `safe="true"` en delete para directorios
-- [ ] Eliminar `file-download` y `file-upload` del codebase
 - [ ] Verificar que `evaluate` persiste bien entre iteraciones del loop
 - [ ] `sensitive` — atributo para box-def y shared-box-def
 - [ ] `workflow-param` — parámetros de entrada al workflow
@@ -297,3 +296,4 @@ XML sigue siendo válido y soportado.
 - [x] ADR-002 — decisión de formatos HTTP documentada
 - [x] 55 tests pasando
 - [x] Ejemplo books_all_pages.xml — 1000 libros extraídos
+- [x] Eliminar `file-download` y `file-upload` del codebase

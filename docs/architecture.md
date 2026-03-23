@@ -188,7 +188,7 @@ Text:         compose, text-split
 Flow:         while (max-loops), loop (loop-list, loop-body, index, max-loops)
               if, else, case, try, catch, exit, sleep
 Functions:    function-create (replace), function-call, function-param, function-return
-Files:        file-read, file-write, file-download, file-upload, file-manage
+Files:        file-read, file-write, file-manage
 Misc:         log, build-list, call-workflow
 ```
 

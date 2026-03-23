@@ -44,6 +44,4 @@ from francis_suite.hands.core import convert_json_to_xml
 from francis_suite.hands.core import convert_xml_to_json
 from francis_suite.hands.core import file_read
 from francis_suite.hands.core import file_write
-from francis_suite.hands.core import file_download
-from francis_suite.hands.core import file_upload
 from francis_suite.hands.core import file_manage

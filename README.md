@@ -4,7 +4,7 @@ Modern web scraping framework, built in Python.
 
 ## Overview
 
-Francis Suite is a low-code web scraping framework configured via XML (with YAML planned),
+Francis Suite is a low-code web scraping framework configured via XML,
 built on a modern Python stack. Define your scrapers in XML and run them from the terminal.
 
 ## Quick Start

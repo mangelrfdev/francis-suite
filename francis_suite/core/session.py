@@ -10,7 +10,12 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
+from typing import TYPE_CHECKING
+
 from francis_suite.core.context import FContext
+
+if TYPE_CHECKING:
+    from francis_suite.core.liveness import SessionLiveness
 
 
 class SessionStatus(Enum):
@@ -50,6 +55,10 @@ class FrancisSession:
         self._started_at: datetime | None = None
         self._finished_at: datetime | None = None
         self._error: Exception | None = None
+
+        from francis_suite.core.liveness import SessionLiveness
+
+        self._liveness = SessionLiveness(self)
 
     # --- Identity ---
 
@@ -142,6 +151,11 @@ class FrancisSession:
     def context(self) -> FContext:
         """The variable context for this session."""
         return self._context
+
+    @property
+    def liveness(self) -> SessionLiveness:
+        """Session deadline, silence watchdog, optional RSS limit (see docs/roadmap)."""
+        return self._liveness
 
     # --- Representation ---
 

@@ -52,7 +52,7 @@ Si sí se aplican cambios en el workspace: **resumir qué archivos tocan y por q
 
 ## Qué es Francis Suite
 
-Framework universal de extracción y procesamiento de datos. Low-code, declarativo, extensible. Configurado con **XML** (YAML en el futuro).
+Framework universal de extracción y procesamiento de datos. Low-code, declarativo, extensible. Configurado con **XML** (workflow; ver roadmap: YAML como workflow descartado).
 
 No es solo scraping: extrae datos de web, PDF, Excel, JSON, APIs, imágenes con IA, bases de datos.
 
@@ -70,7 +70,7 @@ No es solo scraping: extrae datos de web, PDF, Excel, JSON, APIs, imágenes con 
 ## Stack
 
 - Python, lxml, httpx, Scrapling, Playwright
-- XML como formato de workflow (YAML en el futuro)
+- XML como formato de workflow
 - **uv** como gestor de dependencias
 - **pytest** para tests
 - **psutil** para métricas de RAM en el sistema de records
@@ -88,7 +88,7 @@ workflow.xml
   → EventBus     → inicio, fin, error
 ```
 
-**FNode** es el puente universal: todo lo externo se convierte a FNode. El engine no sabe el origen del workflow (permite YAML después sin cambiar el engine).
+**FNode** es el puente universal: todo lo externo se convierte a FNode. El engine no sabe el origen del workflow más allá del parser que alimente el árbol (hoy XML).
 
 ---
 

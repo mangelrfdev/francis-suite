@@ -43,7 +43,7 @@ EventBus        notifica inicio, fin, o error
 
 FNode es el puente universal. Todo lo que venga de afuera
 se convierte a FNode. El engine nunca sabe el formato de origen.
-Esto permite agregar YAML en el futuro sin cambiar nada del engine.
+El workflow declarado por el usuario es **XML** (`<francis-workflow>`); no hay plan de un segundo parser de workflow (p. ej. YAML).
 
 ---
 
@@ -193,7 +193,6 @@ Métodos: get, require, all_tags, reset.
 Lee XML y construye árbol de FNodes.
 Métodos: parse_file, parse_string, parse_bytes.
 Validaciones: archivo existe, XML válido, tag raíz = francis-workflow.
-Futuro: FYamlParser convierte YAML a FNode tree. El engine no cambia.
 
 ---
 
@@ -391,11 +390,14 @@ Ver ADR-003 para diseño completo.
 ### Storage Provider
 fsspec, S3, GCS, Azure Blob. Configurado en francis-config.yaml (nunca en git).
 
+### Liveness, límites y operación
+En el motor: `session-deadline-ms`, `silence-limit-ms`, y opcionalmente `session-max-rss-mb` / `session-rss-warn-mb` en `<francis-workflow>`, hilo que comprueba deadline, silencio y RSS; pulso automático al inicio de cada hand y al completar un hand con éxito; `<session-pulse/>` para pulsos extra. Detalle: [roadmap.md#liveness-operacion](roadmap.md#liveness-operacion). Capa externa opcional (cron, límites OS) sigue en el roadmap.
+
 ### FastAPI REST
 POST /run, GET /status/:id, GET /context/:id, WS /ws/:id.
 
-### YAML parser
-FYamlParser convierte YAML → FNode tree. El engine no cambia.
+### Formato de workflow
+Solo **XML** como lenguaje del workflow. Ver roadmap (YAML como workflow descartado).
 
 ---
 
@@ -431,4 +433,4 @@ FYamlParser convierte YAML → FNode tree. El engine no cambia.
 | Nuevas fuentes | pdf, excel, ia, playwright | ⬜ |
 | Storage cloud | fsspec | ⬜ |
 | FastAPI REST | API de ejecución | ⬜ |
-| YAML parser | formato alternativo | ⬜ |
+| Schema / contrato XML (IDE + plugin) | metadatos hands y atributos | ⬜ |

@@ -25,6 +25,7 @@ from francis_suite.core.events import (
     HandCompletedEvent,
     HandFailedEvent,
 )
+from francis_suite.core.expressions import FrancisExpression
 from francis_suite.core.variables import FVariable, FEmptyVariable
 from francis_suite.hands.core.exit_ import ExitWorkflow
 # Register all built-in hands
@@ -117,6 +118,10 @@ class FRuntime:
         """
         session.start()
 
+        session.liveness.configure_from_root(root)
+        session.liveness.on_session_start()
+        session.liveness.start_watch_thread()
+
         self._bus.emit(SessionStartedEvent(
             session_id=session.id,
             workflow_name=session.workflow_name,
@@ -141,6 +146,8 @@ class FRuntime:
                 session_id=session.id,
                 error=str(e),
             ))
+        finally:
+            session.liveness.stop_watch_thread()
 
         self._persist_private_record_metadata(session)
 
@@ -155,6 +162,12 @@ class FRuntime:
         if node.tag in _INTERNAL_TAGS:
             return FEmptyVariable()
 
+        # Automatic progress pulse so silence-limit-ms does not require <session-pulse/> on every step.
+        session.liveness.record_progress()
+
+        engine = FrancisExpression(session.context)
+        session.liveness.before_hand(node, engine)
+
         self._bus.emit(HandStartedEvent(
             session_id=session.id,
             tag=node.tag,
@@ -165,15 +178,21 @@ class FRuntime:
             hand_class = self._registry.require(node.tag)
             hand = hand_class(node, session, self)
             result = hand.execute()
+            session.liveness.raise_if_violation()
 
             self._bus.emit(HandCompletedEvent(
                 session_id=session.id,
                 tag=node.tag,
             ))
 
+            session.liveness.after_hand(success=True)
             return result
 
+        except ExitWorkflow:
+            session.liveness.after_hand(success=True)
+            raise
         except Exception as e:
+            session.liveness.after_hand(success=False)
             self._bus.emit(HandFailedEvent(
                 session_id=session.id,
                 tag=node.tag,

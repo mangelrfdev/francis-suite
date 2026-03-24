@@ -5,7 +5,7 @@
 | Documento | Contenido |
 |-----------|-----------|
 | [architecture.md](architecture.md) | Arquitectura, reglas de hands, FContext, records, CLI, estado del proyecto |
-| [roadmap.md](roadmap.md) | Hitos, pendientes, futuro (plugin, formatos evolutivos) |
+| [roadmap.md](roadmap.md) | Hitos, pendientes, futuro; **[Liveness y operación](roadmap.md#liveness-operacion)** (deadline, watchdog, heartbeat, capa prod) |
 | **Guías** (`guides/`) | Uso práctico por tema |
 | **Decisiones** (`decisions/ADR-*.md`) | ADRs aceptados |
 

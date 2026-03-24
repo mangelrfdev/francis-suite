@@ -3,11 +3,14 @@ core/variables.py
 
 Variable types used throughout the execution engine.
 Every plugin receives and returns FVariable instances.
+
+FVariable base class lives in core/base.py to avoid circular imports
+with core/records.py — both modules need FVariable.
 """
 
 from __future__ import annotations
-from abc import ABC, abstractmethod
 from typing import Any
+from francis_suite.core.base import FVariable
 
 
 # ---------------------------------------------------------------------------
@@ -60,34 +63,15 @@ def mask_sensitive(value: str) -> str:
     return "*******" + value[-3:]
 
 
-# ---------------------------------------------------------------------------
-# Base variable
-# ---------------------------------------------------------------------------
-
-class FVariable(ABC):
-    """Base class for all Francis Suite variables."""
-
-    @abstractmethod
-    def to_string(self) -> str:
-        """Return the real string value. Used internally by the engine."""
-
-    @abstractmethod
-    def to_display(self) -> str:
-        """Return the display string value. Used by logs and UI."""
-
-    @abstractmethod
-    def to_list(self) -> list["FVariable"]:
-        """Return list representation of the variable."""
-
-    @abstractmethod
-    def is_empty(self) -> bool:
-        """Return True if variable has no meaningful value."""
-
-    def __str__(self) -> str:
-        return self.to_string()
-
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self.to_string()!r})"
+# Re-export FVariable so existing imports from variables.py still work
+__all__ = [
+    "FVariable",
+    "FNodeVariable",
+    "FListVariable",
+    "FEmptyVariable",
+    "is_sensitive_name",
+    "mask_sensitive",
+]
 
 
 # ---------------------------------------------------------------------------

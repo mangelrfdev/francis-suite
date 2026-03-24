@@ -56,3 +56,8 @@ from francis_suite.hands.core import file_read
 from francis_suite.hands.core import file_write
 from francis_suite.hands.core import file_manage
 from francis_suite.hands.core import pause_task
+from francis_suite.hands.core import record_create
+from francis_suite.hands.core import record_add
+from francis_suite.hands.core import record_last_added
+from francis_suite.hands.core import record_count
+from francis_suite.hands.core import record_save

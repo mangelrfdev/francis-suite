@@ -2338,3 +2338,445 @@ def test_pause_task_no_message(monkeypatch):
         session = runtime.run(root, workflow_name="test-pause-no-message")
 
     assert session.status == SessionStatus.COMPLETED
+
+def test_record_create_basic():
+    """record-create should create a record in global context."""
+    xml = """
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string"  required="true"/>
+                <record-set-field name="precio" type="integer" required="true"/>
+            </record-set-group>
+        </record-create>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-record-create")
+
+    assert session.status == SessionStatus.COMPLETED
+    from francis_suite.core.records import FRecord
+    record = session.context.get_shared_box("testRecords")
+    assert isinstance(record, FRecord)
+    assert record.count == 0
+
+
+def test_record_add_adds_row():
+    """record-add should add a normalized row to the record."""
+    xml = """
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string"  required="true"/>
+                <record-set-field name="precio" type="integer" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">Casa</record-add-field>
+                <record-add-field name="precio">100000</record-add-field>
+            </record-add-group>
+        </record-add>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-record-add")
+    
+    assert session.status == SessionStatus.COMPLETED
+    from francis_suite.core.records import FRecord
+    record = session.context.get_shared_box("testRecords")
+    assert record.count == 1
+    assert record.last_row["item"]["nombre"] == "Casa"
+    assert record.last_row["item"]["precio"] == 100000
+
+
+def test_record_add_integer_cleans_currency():
+    """record-add should clean currency symbols from integer fields."""
+    xml = """
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-set-group name="item" required="true">
+                <record-set-field name="precio" type="integer" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="precio">$3.990</record-add-field>
+            </record-add-group>
+        </record-add>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-record-integer-clean")
+
+    assert session.status == SessionStatus.COMPLETED
+    from francis_suite.core.records import FRecord
+    record = session.context.get_shared_box("testRecords")
+    assert record.last_row["item"]["precio"] == 3990
+
+
+def test_record_add_decimal_precision():
+    """record-add should normalize decimal with precision."""
+    xml = """
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-set-group name="item" required="true">
+                <record-set-field name="precio" type="decimal" precision="2" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="precio">3990.5678</record-add-field>
+            </record-add-group>
+        </record-add>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-record-decimal")
+
+    assert session.status == SessionStatus.COMPLETED
+    from francis_suite.core.records import FRecord
+    record = session.context.get_shared_box("testRecords")
+    assert record.last_row["item"]["precio"] == "3990.57"
+
+
+def test_record_add_boolean_normalizes():
+    """record-add should normalize boolean values."""
+    xml = """
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-set-group name="item" required="true">
+                <record-set-field name="activo" type="boolean" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="activo">si</record-add-field>
+            </record-add-group>
+        </record-add>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-record-boolean")
+
+    assert session.status == SessionStatus.COMPLETED
+    from francis_suite.core.records import FRecord
+    record = session.context.get_shared_box("testRecords")
+    assert record.last_row["item"]["activo"] == True
+
+
+def test_record_add_null_if_empty():
+    """record-add should store None when null-if-empty=true and value is empty."""
+    xml = """
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string"  required="true"/>
+                <record-set-field name="marca"  type="string"  required="false" null-if-empty="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">Casa</record-add-field>
+                <record-add-field name="marca"></record-add-field>
+            </record-add-group>
+        </record-add>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-record-null-if-empty")
+
+    assert session.status == SessionStatus.COMPLETED
+    from francis_suite.core.records import FRecord
+    record = session.context.get_shared_box("testRecords")
+    assert record.last_row["item"]["marca"] is None
+
+
+def test_record_add_uuid_generates_if_empty():
+    """record-add should generate UUID when field is empty and type is uuid."""
+    xml = """
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-set-group name="item" required="true">
+                <record-set-field name="id"     type="uuid"   required="true"/>
+                <record-set-field name="nombre" type="string" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="id"></record-add-field>
+                <record-add-field name="nombre">Casa</record-add-field>
+            </record-add-group>
+        </record-add>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-record-uuid")
+
+    assert session.status == SessionStatus.COMPLETED
+    from francis_suite.core.records import FRecord
+    record = session.context.get_shared_box("testRecords")
+    generated_id = record.last_row["item"]["id"]
+    assert generated_id != ""
+    assert len(generated_id) == 36  # UUID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
+
+def test_record_count_returns_row_count():
+    """record-count should return the number of rows."""
+    xml = """
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">Casa</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">Depto</record-add-field>
+            </record-add-group>
+        </record-add>
+        <box-def name="total">
+            <record-count from="testRecords"/>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-record-count")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("total").to_string() == "2"
+
+
+def test_record_last_added_shows_last_row():
+    """record-last-added should not fail and show last row."""
+    xml = """
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">Casa</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-last-added from="testRecords"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-record-last-added")
+
+    assert session.status == SessionStatus.COMPLETED
+
+
+def test_record_save_json(tmp_path):
+    """record-save should save record as JSON file."""
+    output = tmp_path / "test.json"
+
+    xml = f"""
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string"  required="true"/>
+                <record-set-field name="precio" type="integer" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">Casa</record-add-field>
+                <record-add-field name="precio">100000</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-save from="testRecords" format="json" path="{output.as_posix()}"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-record-save-json")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert output.exists()
+
+    import json
+    data = json.loads(output.read_text(encoding="utf-8"))
+    assert len(data) == 1
+    assert data[0]["item"]["nombre"] == "Casa"
+    assert data[0]["item"]["precio"] == 100000
+
+
+def test_record_save_csv(tmp_path):
+    """record-save should save record as CSV file."""
+    output = tmp_path / "test.csv"
+
+    xml = f"""
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string"  required="true"/>
+                <record-set-field name="precio" type="integer" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">Casa</record-add-field>
+                <record-add-field name="precio">100000</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-save from="testRecords" format="csv" path="{output.as_posix()}"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-record-save-csv")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert output.exists()
+    content = output.read_text(encoding="utf-8")
+    assert "item.nombre" in content
+    assert "Casa" in content
+
+
+def test_record_save_ndjson(tmp_path):
+    """record-save should save record as NDJSON file."""
+    output = tmp_path / "test.ndjson"
+
+    xml = f"""
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">Casa</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">Depto</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-save from="testRecords" format="ndjson" path="{output.as_posix()}"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-record-save-ndjson")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert output.exists()
+    lines = output.read_text(encoding="utf-8").strip().split("\n")
+    assert len(lines) == 2
+
+
+def test_record_add_without_create_fails():
+    """record-add should fail if record was not created first."""
+    xml = """
+    <francis-workflow>
+        <record-add to="noExiste">
+            <record-add-group name="item">
+                <record-add-field name="nombre">Casa</record-add-field>
+            </record-add-group>
+        </record-add>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-record-add-no-create")
+
+    assert session.status == SessionStatus.FAILED
+
+
+def test_record_add_multiple_rows():
+    """record-add should accumulate multiple rows."""
+    xml = """
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">Casa</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">Depto</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">Local</record-add-field>
+            </record-add-group>
+        </record-add>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-record-multiple-rows")
+
+    assert session.status == SessionStatus.COMPLETED
+    from francis_suite.core.records import FRecord
+    record = session.context.get_shared_box("testRecords")
+    assert record.count == 3
+    assert record.last_row["item"]["nombre"] == "Local"

@@ -8,7 +8,7 @@ nested scopes (for loops, functions, try/catch blocks).
 
 from __future__ import annotations
 from contextlib import contextmanager
-from typing import Iterator
+from typing import Iterator, Tuple
 from francis_suite.core.variables import FVariable, FEmptyVariable
 
 
@@ -82,6 +82,14 @@ class FContext:
         Returns FEmptyVariable if not found.
         """
         return self._scopes[0].get(name, FEmptyVariable())
+
+    def iter_shared_box_items(self) -> Iterator[Tuple[str, FVariable]]:
+        """
+        Yield (name, value) for every entry in the global (shared) scope.
+        Used by the runtime to find FRecord instances without XML.
+        """
+        for name, value in self._scopes[0].items():
+            yield name, value
 
     @contextmanager
     def new_scope(self) -> Iterator[None]:

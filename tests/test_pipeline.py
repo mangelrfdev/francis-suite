@@ -2780,3 +2780,31 @@ def test_record_add_multiple_rows():
     record = session.context.get_shared_box("testRecords")
     assert record.count == 3
     assert record.last_row["item"]["nombre"] == "Local"
+
+
+def test_auto_private_record_metadata_without_hand(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("FRANCIS_AUTO_RECORD_METADATA", "1")
+
+    xml = """
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string" required="true"/>
+            </record-set-group>
+        </record-create>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-auto-private-meta")
+
+    assert session.status == SessionStatus.COMPLETED
+    meta_path = tmp_path / "sessions" / session.id / "testRecords_private_metadata.json"
+    assert meta_path.exists()
+    import json
+    data = json.loads(meta_path.read_text(encoding="utf-8"))
+    assert data.get("session_id") == session.id
+    assert data.get("status") == "completed"

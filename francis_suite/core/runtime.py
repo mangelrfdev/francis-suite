@@ -9,6 +9,10 @@ This is the final step in the pipeline:
 """
 
 from __future__ import annotations
+import os
+import re
+from pathlib import Path
+
 from francis_suite.core.nodes import FNode
 from francis_suite.core.session import FrancisSession
 from francis_suite.core.registry import HandRegistry
@@ -138,6 +142,8 @@ class FRuntime:
                 error=str(e),
             ))
 
+        self._persist_private_record_metadata(session)
+
         return session
 
     def execute_node(self, node: FNode, session: FrancisSession) -> FVariable:
@@ -188,3 +194,28 @@ class FRuntime:
         for child in node.children:
             result = self.execute_node(child, session)
         return result
+
+    def _persist_private_record_metadata(self, session: FrancisSession) -> None:
+        """
+        After every run (success or failure), write private metadata JSON for each
+        FRecord in the global context. Does not require <record-save-metadata> in XML.
+
+        Disabled when env FRANCIS_AUTO_RECORD_METADATA is 0/false/no (e.g. tests).
+        Output: sessions/<session_id>/<record_name>_private_metadata.json
+        """
+        flag = os.environ.get("FRANCIS_AUTO_RECORD_METADATA", "1").strip().lower()
+        if flag in ("0", "false", "no"):
+            return
+
+        from francis_suite.core.records import FRecord
+
+        base_dir = Path("sessions") / session.id
+        for name, var in session.context.iter_shared_box_items():
+            if not isinstance(var, FRecord):
+                continue
+            safe = re.sub(r"[^\w\-.]", "_", name).strip("._-") or "record"
+            path = base_dir / f"{safe}_private_metadata.json"
+            try:
+                var.save_meta(str(path), session=session)
+            except Exception as e:
+                print(f"[RECORD] auto private metadata save failed for '{name}': {e}")

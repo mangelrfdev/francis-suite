@@ -90,15 +90,80 @@ Ejemplos aplicados:
 - force-delete, force-move, force-copy en vez de force u overwrite
 - size-format en vez de unit
 - to en vez de dest
+- include-metadata en vez de meta o with-meta
+
+### REGLA 5 — Sensitive variables
+
+- Nunca usar resolve_body_text() en contextos de display
+- Usar resolve_body_text_display() o engine.resolve_display() para logs y UI
+- to_string() → valor real para el engine
+- to_display() → valor maskeado si sensitive, para logs y UI
+- Auto-sensitive: api_key, token, password, secret, credential, auth, private_key
+
+### REGLA 6 — FRecord en el contexto
+
+- FRecord hereda de FVariable (importada de base.py)
+- Se guarda como shared-box en el contexto global
+- Verificar con isinstance(record, FRecord) — nunca con hasattr
+- to_string() retorna "[RECORD:nombre:count]" — nunca data real
+- Los hands de record pasan self.session a save() y save_meta()
+
+---
+
+## core/base.py ✅ NUEVO
+
+FVariable — clase base abstracta única del sistema.
+Vive aquí para evitar circular imports entre variables.py y records.py.
+Ambos módulos importan FVariable desde base.py.
+
+```python
+from francis_suite.core.base import FVariable
+```
+
+NUNCA mover FVariable de base.py.
 
 ---
 
 ## core/variables.py ✅
 
-FVariable — clase base abstracta.
-FNodeVariable — valor único (string, número, HTML, XML, bytes).
+Importa FVariable de base.py.
+FNodeVariable — valor único (string, bytes, número) con soporte sensitive.
 FListVariable — lista de FVariables.
 FEmptyVariable — representa nada. Singleton.
+
+Funciones: is_sensitive_name(), mask_sensitive()
+
+---
+
+## core/records.py ✅ NUEVO
+
+Sistema de records estructurados con schema, metadata y persistencia.
+Importa FVariable de base.py.
+
+Clases:
+- FRecordField — un campo con tipo, validación y normalización
+- FRecordGroup — grupo de campos
+- FRecordSchema — schema completo con grupos y metadata pública
+- FRecord(FVariable) — colección de rows + schema + metadata + save()
+
+FRecord hereda de FVariable — vive en el contexto como shared-box.
+
+### Tipos de field:
+```
+string, integer, decimal (Decimal exacto), boolean
+date (→YYYY-MM-DD), datetime (→YYYY-MM-DDTHH:MM:SS)
+url, email, uuid, null-if-empty
+```
+
+### Metadata privada automática (siempre disponible):
+```
+session_id, workflow_path, francis_suite_version, hostname
+sistema_operativo, python_version, status, error, inicio, fin
+duracion_segundos, ram_peak_mb (psutil), ram_promedio_mb, rows_por_segundo
+total_rows, rows_completados, rows_con_campos_vacios
+rows_fallidos, campos_nulos_total, porcentaje_completitud
++ campos agregados via <record-private-metadata>
+```
 
 ---
 
@@ -154,11 +219,11 @@ Eventos de hands: HandStartedEvent, HandCompletedEvent, HandFailedEvent.
 
 ## core/expressions.py ✅
 
-Motor de expresiones.
+Motor de expresiones con soporte sensitive.
 
-engine.resolve("${base_url}/page-${pagina}.html")
-engine.evaluate("${contador} + 1")
-engine.evaluate("${precio} > 1000")
+engine.resolve()         → valor real, para el engine
+engine.resolve_display() → valor maskeado si sensitive, para logs y UI
+engine.evaluate()        → evaluación aritmética y lógica
 
 Métodos en variables: toBoolean(), isEmpty(), toUpperCase(), toLowerCase(), trim().
 
@@ -167,7 +232,9 @@ Métodos en variables: toBoolean(), isEmpty(), toUpperCase(), toLowerCase(), tri
 ## core/runtime.py ✅
 
 Ejecuta el árbol de FNodes.
-Métodos: run(root, workflow_name), execute_node, _execute_children.
+Métodos:
+- run(root, workflow_name) — crea sesión internamente
+- run_session(root, session) — acepta sesión pre-construida con variables inyectadas
 
 ---
 
@@ -182,210 +249,148 @@ class MiHand(AbstractHand):
         return FNodeVariable("resultado")
 ```
 
-Disponible en cada hand: self.node, self.session, self.context,
-self.attr, self.require_attr, self.resolve_body_text,
-self.has_children, self.execute_children, self.execute_child.
+Disponible en cada hand:
+- self.node, self.session, self.context, self.runtime
+- self.attr, self.require_attr
+- self.resolve_body_text() — valor real
+- self.resolve_body_text_display() — valor maskeado para logs
+- self.has_children, self.execute_children, self.execute_child
 
 ---
 
 ## Hands implementados ✅
 
 ```
-Variables:    box-def, box, shared-box-def (replace), shared-box, evaluate
-HTTP:         httpx-call (response: text, binary, stream), httpx-header, httpx-param
+Variables:    box-def (sensitive), box
+              shared-box-def (replace, sensitive), shared-box
+              evaluate
+
+HTTP:         httpx-call (response: text, binary, stream)
+              httpx-header, httpx-param
+
 Parsing:      convert-html-to-xml, xpath-extract
               convert-json-to-xml, convert-xml-to-json
+
+Converts:     convert-binary-to-base64, convert-base64-to-binary
+              convert-text-to-base64, convert-base64-to-text
+              convert-json-to-csv, convert-csv-to-json, convert-xml-to-csv
+              convert-text-to-url, convert-url-to-text
+              convert-html-entities-to-text
+
 Regex:        regex, regex-pattern, regex-input, regex-result
+
 Text:         compose, text-split
+
 Flow:         while (max-loops), loop (loop-list, loop-body, index, max-loops)
               if, else, case, try, catch, exit, sleep
+              pause-task (FRANCIS_ENV=dev pausa, prod warning)
+
 Functions:    function-create (replace), function-call, function-param, function-return
-Files:        file-read, file-write (encoding: utf-8, binary), file-manage
-Misc:         log, build-list, call-workflow
+
+Files:        file-read, file-write (encoding: utf-8, binary, newline)
+              file-manage (8 actions)
+
+Records:      record-create, record-add, record-last-added, record-count
+              record-save (json, csv, ndjson)
+              record-save-metadata (solo metadata privada, sin rows)
+              record-private-metadata (agrega metadata en cualquier parte)
+
+Misc:         log (sensitive auto-masked), build-list, call-workflow
 ```
 
 ---
 
-## Hands pendientes — Urgentes ⬜
+## Gestión de contenido HTTP
 
-- workflow-param — parámetros de entrada al workflow
-- sensitive — atributo para box-def y shared-box-def
-- convert-to-base64 — convierte binary a base64 string
-- convert-from-base64 — convierte base64 string a binary
-- pause-task — pausa la ejecución en un punto específico (solo dev)
-- validate — comando CLI para validar sintaxis del workflow
+| response | Cuándo usarlo |
+|---|---|
+| text (default) | HTML, XML, JSON, CSV, texto |
+| binary | PDF, Excel, imágenes, ZIP |
+| stream | Video, audio, archivos +50MB |
+
+file-download y file-upload fueron eliminados.
+httpx-call + file-write los reemplaza completamente.
 
 ---
 
-## Hands pendientes — Sistema de Records ⬜
-
-Diseño acordado, pendiente codear.
-
-Ciclo de vida:
-```
-1. DEFINIR   → record-create
-2. AGREGAR   → record-add
-3. VERIFICAR → record-last-added
-4. GUARDAR   → record-save
-```
+## Sistema de records — flujo completo
 
 ```xml
-<!-- 1. definir schema -->
-<record-create name="productosRecords">
-    <record-set-group name="productos" required="true">
-        <record-set-field name="nombre_visible" type="string"  required="true"/>
-        <record-set-field name="precio"         type="integer" required="true"/>
-        <record-set-field name="marca"          type="string"  required="false"/>
+<!-- 1. definir schema con metadata opcional -->
+<record-create name="propiedadesRecords">
+    <record-metadata>
+        <metadata-field name="fuente">Portal Inmobiliario</metadata-field>
+        <metadata-field name="rows_completados"/>
+    </record-metadata>
+    <record-set-group name="propiedad" required="true">
+        <record-set-field name="titulo" type="string"  required="true"/>
+        <record-set-field name="precio" type="integer" required="true"/>
     </record-set-group>
 </record-create>
 
-<!-- 2. agregar dentro del loop -->
-<record-add to="productosRecords">
-    <record-add-group name="productos">
-        <record-add-field name="nombre_visible">${nombre}</record-add-field>
-        <record-add-field name="precio">${precio}</record-add-field>
-    </record-add-group>
-</record-add>
+<!-- 2. loop de scraping -->
+<loop item="item" index="i">
+    <loop-body>
+        <record-add to="propiedadesRecords">
+            <record-add-group name="propiedad">
+                <record-add-field name="titulo">${titulo}</record-add-field>
+                <record-add-field name="precio">${precio}</record-add-field>
+            </record-add-group>
+        </record-add>
 
-<!-- 3. verificar -->
-<record-last-added from="productosRecords"/>
+        <!-- metadata privada en cualquier parte del workflow -->
+        <record-private-metadata to="propiedadesRecords">
+            <private-metadata-add-field name="paginas_procesadas">${i}</private-metadata-add-field>
+        </record-private-metadata>
+    </loop-body>
+</loop>
 
-<!-- 4. guardar -->
-<record-save from="productosRecords" format="json"   path="output/productos.json"/>
-<record-save from="productosRecords" format="csv"    path="output/productos.csv"/>
-<record-save from="productosRecords" format="ndjson" path="output/productos.ndjson"/>
-```
+<!-- 3. guardar data — metadata pública se incluye si fue declarada -->
+<record-save from="propiedadesRecords" format="ndjson" path="output/propiedades.ndjson"/>
 
-Tipos de field: string, integer, decimal, boolean, date, datetime, url, email, uuid, null-if-empty.
-Formatos: json, csv, ndjson, txt, html.
-Modos: mode="batch" (default), mode="stream" (sin límite RAM).
-
----
-
-## Hands pendientes — Nuevas fuentes ⬜
-
-```
-use-ia          — análisis con IA (imágenes a JSON estructurado)
-playwright-call — automatización de browser con su propio manejo de descargas
-scrapling-call  — scraping avanzado con su propio manejo de descargas
-pdf-read        — leer y parsear PDFs
-excel-read      — leer Excel y CSV
-database-call   — consultas a bases de datos
+<!-- 4. guardar solo metadata privada — para vos, sin duplicar los rows -->
+<record-save-metadata from="propiedadesRecords" path="output/internal/meta.json"/>
 ```
 
 ---
 
-## Gestión de contenido HTTP por formato
+## CLI
 
-`httpx-call` tiene un atributo `response` que controla cómo se devuelve
-el contenido de la respuesta HTTP.
-
-### Valores de `response`
-
-| Valor | Cuándo usarlo |
-|---|---|
-| `text` (default) | HTML, XML, JSON, CSV, texto plano |
-| `binary` | PDF, Excel, Word, ZIP, imágenes |
-| `stream` | Video, audio, archivos grandes (+50MB) |
-
-### Regla general
-
-```
-Es texto                    → text (default)
-Es binario pequeño/mediano  → binary
-Es binario grande (+50MB)   → stream obligatorio
-Requiere base64             → lo maneja la hand destino internamente
+```bash
+francis-suite run workflow.xml
+francis-suite run workflow.xml --param ciudad=santiago --param paginas=10
 ```
 
-### Base64
-
-Base64 NO es una opción de `response`. Si una API destino requiere
-base64, usar `convert-to-base64` después de recibir la respuesta binary.
-La hand `use-ia` maneja la conversión internamente cuando es necesario.
-
-### Flujo completo por tipo de contenido
-
-**HTML — default:**
-```xml
-<box-def name="html">
-    <httpx-call url="https://ejemplo.com"/>
-</box-def>
-```
-
-**JSON:**
-```xml
-<box-def name="data">
-    <httpx-call url="https://api.ejemplo.com/productos"/>
-</box-def>
-```
-
-**PDF o Excel:**
-```xml
-<box-def name="reporte">
-    <httpx-call url="https://ejemplo.com/reporte.pdf" response="binary"/>
-</box-def>
-<file-write path="downloads/reporte.pdf" encoding="binary">
-    <box name="reporte"/>
-</file-write>
-```
-
-**Imagen para IA:**
-```xml
-<box-def name="foto">
-    <httpx-call url="${foto_url}" response="binary"/>
-</box-def>
-<box-def name="datos">
-    <use-ia model="vision">
-        <box name="foto"/>
-    </use-ia>
-</box-def>
-```
-
-**Video o audio — stream obligatorio:**
-```xml
-<box-def name="archivo">
-    <httpx-call url="https://ejemplo.com/video.mp4" response="stream" path="downloads/video.mp4"/>
-</box-def>
-```
-
-### `file-download` y `file-upload` — eliminados
-
-Reemplazados por `httpx-call` con `response="binary"` o `response="stream"` + `file-write`.
-Cada cliente futuro (playwright, scrapling) manejará sus propias descargas internamente.
+Variables inyectadas con --param se guardan como shared-box antes de ejecutar.
+Valores sensibles nunca aparecen en logs — solo "[PARAMS] Context variables loaded."
 
 ---
 
-## Futuro del proyecto ⬜
+## Futuro del proyecto
 
-### Sistema de proxy
-El primer hit de cualquier cliente debe pasar por configuración de proxy.
-Soporta: sin proxy, proxy fijo, rotación automática.
-Pendiente de diseño — no implementar antes de tener clientes listos.
+### RecordKey — próximo a implementar
+Sistema de deduplicación por hash de campos inmutables.
+record-key dentro de record-create define los campos del key.
+Si el key ya existe al hacer record-add → skip silencioso con log.
+
+### Formatos adicionales de record-save
+xml, excel (con hoja de metadata), parquet, html, txt con template.
+
+**Guía de diseño (metadata por formato, atributos, ejemplos):** [guides/record-save-formats.md](guides/record-save-formats.md).
 
 ### Plugin VSCode
-- Syntax highlighting para XML de Francis Suite
-- Autocompletado de hands y atributos
-- Tree de ejecución en tiempo real (usa EventBus)
-- Inspector de variables — al hacer click en una línea muestra el valor
-- Visualizador de datos universal — TEXT, HTML, XML, JSON, CSV con buscador
-- Navegador de records — 1 de 1000, botones anterior/siguiente
-- Controles de ejecución — run, pause, step, resume, stop
-- Variables sensibles muestran ***
-- Ver ADR-003 para diseño completo
+Syntax highlighting, autocompletado, tree de ejecución, inspector de variables,
+navegador de records, controles run/pause/step/resume/stop.
+Ver ADR-003 para diseño completo.
 
-### Storage Provider — Cloud-ready
-Usa fsspec. Configuración en francis-config.yaml (nunca en git).
-Soporta: local, S3, GCS, Azure Blob.
-
-### fs — Objeto de utilidades
-${fs.uuid()}, ${fs.now()}, ${fs.env("KEY")}, ${fs.random(1,100)}, ${fs.urlEncode("")}.
+### Storage Provider
+fsspec, S3, GCS, Azure Blob. Configurado en francis-config.yaml (nunca en git).
 
 ### FastAPI REST
 POST /run, GET /status/:id, GET /context/:id, WS /ws/:id.
-Base para el Plugin VSCode y para ejecución remota en producción.
 
-### YAML como formato alternativo
-FYamlParser convierte YAML a FNode tree. El engine no cambia nada.
+### YAML parser
+FYamlParser convierte YAML → FNode tree. El engine no cambia.
 
 ---
 
@@ -393,30 +398,30 @@ FYamlParser convierte YAML a FNode tree. El engine no cambia nada.
 
 | Módulo | Responsabilidad | Estado |
 |---|---|---|
-| core/variables.py | Tipos de variables | ✅ |
+| core/base.py | FVariable base única | ✅ |
+| core/variables.py | FNodeVariable, FListVariable, FEmptyVariable | ✅ |
+| core/records.py | FRecord, FRecordSchema, metadata | ✅ |
 | core/nodes.py | Nodo XML parseado | ✅ |
 | core/context.py | Store de variables con scope | ✅ |
 | core/registry.py | Registro de hands | ✅ |
 | core/parser.py | XML a árbol de FNodes | ✅ |
 | core/session.py | Sesión de ejecución | ✅ |
 | core/events.py | Sistema de eventos | ✅ |
-| core/expressions.py | Motor de expresiones | ✅ |
-| hands/base.py | Clase base de hands | ✅ |
-| core/runtime.py | Motor de ejecución | ✅ |
-| hands/core/*.py | Todos los hands core | ✅ |
-| httpx-call binary/stream | response binary y stream | ✅ |
-| file-write binary | encoding binary con open("wb") | ✅ |
-| file-manage completo | delete, move, copy, rename, mkdir, check-exists, get-size, list | ✅ |
-| compose | rename de text-format | ✅ |
+| core/expressions.py | Motor de expresiones con resolve_display | ✅ |
+| hands/base.py | Clase base con resolve_body_text_display | ✅ |
+| core/runtime.py | Motor con run() y run_session() | ✅ |
+| Todos los hands core | Ver lista completa arriba | ✅ |
+| Sistema de records base | record-create hasta record-save-metadata | ✅ |
+| Sistema de metadata | psutil, calidad de datos, trazabilidad | ✅ |
+| pause-task | pausa en dev, warning en prod | ✅ |
+| CLI --param | inyección segura de variables | ✅ |
 | Compatibilidad universal | pathlib, as_posix(), utf-8 | ✅ |
-| ADR-002 | decisión formatos HTTP | ✅ |
-| ADR-003 | debug, observabilidad, plugin | ✅ |
-| Sistema de records | record-create, record-add, etc. | ⬜ |
-| workflow-param | parámetros de entrada | ⬜ |
-| sensitive | variables sensibles | ⬜ |
-| convert-to-base64 | binary a base64 | ⬜ |
-| convert-from-base64 | base64 a binary | ⬜ |
-| pause-task | pausa en dev | ⬜ |
+| Auto metadata privada por sesión | `sessions/<session_id>/*_private_metadata.json` sin XML; `FRANCIS_AUTO_RECORD_METADATA=0` desactiva | ✅ |
+| Tests | todos compatibles Windows/Linux/Mac | ✅ |
+| RecordKey | deduplicación por hash | ⬜ |
+| Formatos xml, excel, parquet | record-save adicional | ⬜ |
+| record-filter, record-sort | filtrado y ordenamiento | ⬜ |
+| workflow-param como hand XML | --param ya funciona en CLI | ⬜ |
 | Plugin VSCode | syntax highlighting y debug | ⬜ |
 | Nuevas fuentes | pdf, excel, ia, playwright | ⬜ |
 | Storage cloud | fsspec | ⬜ |

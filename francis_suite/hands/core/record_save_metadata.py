@@ -26,6 +26,10 @@ class RecordSaveMetadataHand(AbstractHand):
     Saves only the private metadata to disk as JSON.
     Never includes rows — zero duplication of data.
 
+    The runtime also writes private metadata at session end for each FRecord under
+    sessions/<session_id>/ (unless FRANCIS_AUTO_RECORD_METADATA=0). Use this hand
+    for a custom output path.
+
     Always works regardless of session status.
     Missing values are null, never raises.
 

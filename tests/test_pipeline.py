@@ -9,6 +9,7 @@ import httpx
 from francis_suite.core.parser import FParser
 from francis_suite.core.runtime import FRuntime
 from francis_suite.core.session import SessionStatus
+from unittest.mock import patch
 
 
 def test_log_hand_executes():
@@ -2277,3 +2278,63 @@ def test_convert_html_entities_to_text():
 
     assert session.status == SessionStatus.COMPLETED
     assert session.context.get("resultado").to_string() == "Casa & Jardín"
+
+from unittest.mock import patch
+
+def test_pause_task_dev_pauses(monkeypatch):
+    """pause-task in dev should pause and wait for input."""
+    monkeypatch.setenv("FRANCIS_ENV", "dev")
+
+    xml = """
+    <francis-workflow>
+        <pause-task message="Revisando datos"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    with patch("builtins.input", return_value=""):
+        root = parser.parse_string(xml)
+        session = runtime.run(root, workflow_name="test-pause-dev")
+
+    assert session.status == SessionStatus.COMPLETED
+
+
+def test_pause_task_prod_does_not_pause(monkeypatch):
+    """pause-task in prod should warn and continue without pausing."""
+    monkeypatch.setenv("FRANCIS_ENV", "prod")
+
+    xml = """
+    <francis-workflow>
+        <pause-task message="Revisando datos"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-pause-prod")
+
+    assert session.status == SessionStatus.COMPLETED
+
+
+def test_pause_task_no_message(monkeypatch):
+    """pause-task without message should work fine."""
+    monkeypatch.setenv("FRANCIS_ENV", "dev")
+
+    xml = """
+    <francis-workflow>
+        <pause-task/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    with patch("builtins.input", return_value=""):
+        root = parser.parse_string(xml)
+        session = runtime.run(root, workflow_name="test-pause-no-message")
+
+    assert session.status == SessionStatus.COMPLETED

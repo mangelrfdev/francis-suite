@@ -55,3 +55,4 @@ from francis_suite.hands.core import call_workflow
 from francis_suite.hands.core import file_read
 from francis_suite.hands.core import file_write
 from francis_suite.hands.core import file_manage
+from francis_suite.hands.core import pause_task

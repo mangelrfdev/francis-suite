@@ -368,10 +368,10 @@ Valores sensibles nunca aparecen en logs — solo "[PARAMS] Context variables lo
 
 ## Futuro del proyecto
 
-### RecordKey — próximo a implementar
-Sistema de deduplicación por hash de campos inmutables.
-record-key dentro de record-create define los campos del key.
-Si el key ya existe al hacer record-add → skip silencioso con log.
+### RecordKey — implementado
+Sistema de deduplicación por hash (SHA-256) de los valores normalizados de los campos listados en `<record-key>` / `<key-field>`.
+Si el key ya existe al hacer `record-add` → no se agrega la fila y se loguea `[RECORD] duplicate key — skipping (key: …)`.
+Ver `docs/roadmap.md` para XML de ejemplo.
 
 ### Formatos adicionales de record-save
 xml, excel (con hoja de metadata), parquet, html, txt con template.
@@ -418,7 +418,7 @@ FYamlParser convierte YAML → FNode tree. El engine no cambia.
 | Compatibilidad universal | pathlib, as_posix(), utf-8 | ✅ |
 | Auto metadata privada por sesión | `sessions/<session_id>/*_private_metadata.json` sin XML; `FRANCIS_AUTO_RECORD_METADATA=0` desactiva | ✅ |
 | Tests | todos compatibles Windows/Linux/Mac | ✅ |
-| RecordKey | deduplicación por hash | ⬜ |
+| RecordKey | deduplicación por hash (`<record-key>` / `<key-field>`) | ✅ |
 | Formatos xml, excel, parquet | record-save adicional | ⬜ |
 | record-filter, record-sort | filtrado y ordenamiento | ⬜ |
 | workflow-param como hand XML | --param ya funciona en CLI | ⬜ |

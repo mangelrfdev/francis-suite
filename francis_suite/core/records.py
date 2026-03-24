@@ -21,6 +21,7 @@ Metadata system:
 """
 
 from __future__ import annotations
+import hashlib
 import json
 import csv
 import uuid
@@ -309,6 +310,10 @@ class FRecordSchema:
         self.public_metadata_fields: list[dict] = []
         self.has_public_metadata: bool = False
 
+        # record-key — optional, from <record-key><key-field name="..."/></record-key>
+        # Stored as "group.field" keys in declaration order
+        self.record_key_keys: list[str] = []
+
     def add_group(self, group: FRecordGroup) -> None:
         self.groups[group.name] = group
 
@@ -326,6 +331,53 @@ class FRecordSchema:
                 group_raw[field_name] = raw_row.get(key, "")
             result[group_name] = group.normalize_row(group_raw)
         return result
+
+    def add_record_key_field(self, field_spec: str) -> None:
+        """
+        Register one field that participates in the duplicate-detection key.
+        field_spec: bare field name (must be unique across groups) or "group.field".
+        """
+        resolved = self._resolve_key_field(field_spec.strip())
+        if resolved in self.record_key_keys:
+            raise ValueError(
+                f"[RECORD] duplicate key-field '{field_spec}' in <record-key>"
+            )
+        self.record_key_keys.append(resolved)
+
+    def _resolve_key_field(self, spec: str) -> str:
+        if not self.groups:
+            raise ValueError(
+                "[RECORD] <record-key> must be declared after <record-set-group> fields exist"
+            )
+        if "." in spec:
+            group_name, field_name = spec.split(".", 1)
+            group_name = group_name.strip()
+            field_name = field_name.strip()
+            if group_name not in self.groups:
+                raise ValueError(
+                    f"[RECORD] key-field references unknown group '{group_name}'"
+                )
+            if field_name not in self.groups[group_name].fields:
+                raise ValueError(
+                    f"[RECORD] key-field references unknown field '{field_name}' "
+                    f"in group '{group_name}'"
+                )
+            return f"{group_name}.{field_name}"
+
+        matches: list[str] = []
+        for gname, group in self.groups.items():
+            if spec in group.fields:
+                matches.append(f"{gname}.{spec}")
+        if len(matches) == 1:
+            return matches[0]
+        if len(matches) == 0:
+            raise ValueError(
+                f"[RECORD] key-field '{spec}' not found in any record-set-group"
+            )
+        raise ValueError(
+            f"[RECORD] key-field '{spec}' is ambiguous — use 'group.field' "
+            f"(matches: {', '.join(matches)})"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -347,6 +399,7 @@ class FRecord(FVariable):
         self._rows:         list[dict] = []
         self._rows_failed:  int = 0
         self._private_meta: dict = {}
+        self._seen_record_key_hashes: set[str] = set()
 
         # RAM tracking with psutil if available
         self._ram_samples:  list[float] = []
@@ -378,12 +431,33 @@ class FRecord(FVariable):
     def last_row(self) -> dict | None:
         return self._rows[-1] if self._rows else None
 
-    def add_row(self, raw_row: dict) -> dict:
-        """Normalize and add a row to the collection."""
+    def add_row(self, raw_row: dict) -> dict | None:
+        """
+        Normalize and add a row to the collection.
+        Returns None if <record-key> is configured and this row duplicates an existing key.
+        """
         normalized = self._schema.normalize_row(raw_row)
+        if self._schema.record_key_keys:
+            key_hash = self._make_record_key_hash(normalized)
+            if key_hash in self._seen_record_key_hashes:
+                short = key_hash[:16]
+                print(f"[RECORD] duplicate key — skipping (key: {short})")
+                return None
+            self._seen_record_key_hashes.add(key_hash)
         self._rows.append(normalized)
         self._sample_ram()
         return normalized
+
+    def _make_record_key_hash(self, normalized: dict) -> str:
+        """Stable SHA-256 hash of key field values in schema order."""
+        parts: list[tuple[str, Any]] = []
+        for gk in self._schema.record_key_keys:
+            g_name, f_name = gk.split(".", 1)
+            group_data = normalized.get(g_name, {})
+            val = group_data.get(f_name) if isinstance(group_data, dict) else None
+            parts.append((gk, val))
+        payload = json.dumps(parts, sort_keys=True, default=str, ensure_ascii=False)
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
     def add_private_metadata(self, name: str, value: str) -> None:
         """Add a custom field to private metadata."""

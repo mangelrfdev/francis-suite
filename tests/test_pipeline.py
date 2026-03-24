@@ -2782,6 +2782,118 @@ def test_record_add_multiple_rows():
     assert record.last_row["item"]["nombre"] == "Local"
 
 
+def test_record_key_duplicate_skipped():
+    """record-add with same key-field values should append once when record-key is set."""
+    xml = """
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-key>
+                <key-field name="nombre"/>
+            </record-key>
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string" required="true"/>
+                <record-set-field name="precio" type="integer" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">Casa</record-add-field>
+                <record-add-field name="precio">100</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">Casa</record-add-field>
+                <record-add-field name="precio">200</record-add-field>
+            </record-add-group>
+        </record-add>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-record-key-dup")
+
+    assert session.status == SessionStatus.COMPLETED
+    from francis_suite.core.records import FRecord
+    record = session.context.get_shared_box("testRecords")
+    assert isinstance(record, FRecord)
+    assert record.count == 1
+    assert record.last_row["item"]["precio"] == 100
+
+
+def test_record_key_two_fields():
+    """Two different keys should both be stored."""
+    xml = """
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-key>
+                <key-field name="a"/>
+                <key-field name="b"/>
+            </record-key>
+            <record-set-group name="item" required="true">
+                <record-set-field name="a" type="string" required="true"/>
+                <record-set-field name="b" type="string" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="a">1</record-add-field>
+                <record-add-field name="b">2</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="a">1</record-add-field>
+                <record-add-field name="b">3</record-add-field>
+            </record-add-group>
+        </record-add>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-record-key-2")
+
+    assert session.status == SessionStatus.COMPLETED
+    from francis_suite.core.records import FRecord
+    record = session.context.get_shared_box("testRecords")
+    assert record.count == 2
+
+
+def test_record_key_qualified_name():
+    """key-field name='group.field' when bare name would be ambiguous — use one group."""
+    xml = """
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-key>
+                <key-field name="item.id"/>
+            </record-key>
+            <record-set-group name="item" required="true">
+                <record-set-field name="id" type="string" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="id">x</record-add-field>
+            </record-add-group>
+        </record-add>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-record-key-qualified")
+
+    assert session.status == SessionStatus.COMPLETED
+    from francis_suite.core.records import FRecord
+    record = session.context.get_shared_box("testRecords")
+    assert record.count == 1
+
+
 def test_auto_private_record_metadata_without_hand(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("FRANCIS_AUTO_RECORD_METADATA", "1")

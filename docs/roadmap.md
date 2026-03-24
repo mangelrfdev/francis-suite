@@ -7,7 +7,7 @@ Low-code, declarativo, extensible, cloud-ready.
 
 ## ⬜ Ahora — Urgente
 
-- [ ] RecordKey — identificador único por record para evitar duplicados
+- [x] RecordKey — identificador único por record para evitar duplicados
 - [ ] Formatos adicionales de record-save — xml, excel, parquet, html, txt
 - [ ] record-filter — filtrar rows antes de guardar
 - [ ] record-sort — ordenar por campo
@@ -15,7 +15,7 @@ Low-code, declarativo, extensible, cloud-ready.
 
 ---
 
-## ⬜ RecordKey — Diseño acordado, pendiente codear
+## ✅ RecordKey — Implementado
 
 Sistema para evitar duplicados en el scraping.
 Cada record tiene un key único generado a partir de campos que nunca cambian.

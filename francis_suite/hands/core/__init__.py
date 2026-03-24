@@ -16,6 +16,18 @@ from francis_suite.hands.core import sleep_avg
 from francis_suite.hands.core import sleep_max
 from francis_suite.hands.core import httpx_call
 from francis_suite.hands.core import convert_html_to_xml
+from francis_suite.hands.core import convert_binary_to_base64
+from francis_suite.hands.core import convert_base64_to_binary
+from francis_suite.hands.core import convert_text_to_base64
+from francis_suite.hands.core import convert_base64_to_text
+from francis_suite.hands.core import convert_json_to_csv
+from francis_suite.hands.core import convert_csv_to_json
+from francis_suite.hands.core import convert_xml_to_csv
+from francis_suite.hands.core import convert_text_to_url
+from francis_suite.hands.core import convert_url_to_text
+from francis_suite.hands.core import convert_html_entities_to_text
+from francis_suite.hands.core import convert_json_to_xml
+from francis_suite.hands.core import convert_xml_to_json
 from francis_suite.hands.core import xpath_extract
 from francis_suite.hands.core import loop
 from francis_suite.hands.core import loop_list
@@ -40,8 +52,6 @@ from francis_suite.hands.core import evaluate
 from francis_suite.hands.core import exit_
 from francis_suite.hands.core import build_list
 from francis_suite.hands.core import call_workflow
-from francis_suite.hands.core import convert_json_to_xml
-from francis_suite.hands.core import convert_xml_to_json
 from francis_suite.hands.core import file_read
 from francis_suite.hands.core import file_write
 from francis_suite.hands.core import file_manage

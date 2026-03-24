@@ -2038,3 +2038,242 @@ def test_sensitive_shared_box_def():
     assert session.context.get("password").to_string() == "mi_clave_secreta"
     assert "***" in session.context.get("password").to_display()
     assert "mi_clave_secreta" not in session.context.get("password").to_display()
+
+def test_convert_binary_to_base64():
+    """convert-binary-to-base64 should encode bytes to base64 string."""
+    xml = """
+    <francis-workflow>
+        <box-def name="texto">hola mundo</box-def>
+        <box-def name="resultado">
+            <convert-binary-to-base64>${texto}</convert-binary-to-base64>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-binary-to-base64")
+
+    assert session.status == SessionStatus.COMPLETED
+    import base64
+    expected = base64.b64encode("hola mundo".encode("utf-8")).decode("utf-8")
+    assert session.context.get("resultado").to_string() == expected
+
+
+def test_convert_base64_to_binary():
+    """convert-base64-to-binary should decode base64 string to bytes."""
+    import base64
+    encoded = base64.b64encode(b"hola mundo").decode("utf-8")
+
+    xml = f"""
+    <francis-workflow>
+        <box-def name="base64">{encoded}</box-def>
+        <box-def name="resultado">
+            <convert-base64-to-binary>${{base64}}</convert-base64-to-binary>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-base64-to-binary")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("resultado").value == b"hola mundo"
+
+
+def test_convert_base64_to_binary_invalid_fails():
+    """convert-base64-to-binary should fail with invalid base64."""
+    xml = """
+    <francis-workflow>
+        <box-def name="resultado">
+            <convert-base64-to-binary>esto no es base64!!!</convert-base64-to-binary>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-base64-to-binary-invalid")
+
+    assert session.status == SessionStatus.FAILED
+
+
+def test_convert_text_to_base64():
+    """convert-text-to-base64 should encode text to base64."""
+    xml = """
+    <francis-workflow>
+        <box-def name="resultado">
+            <convert-text-to-base64>hola mundo</convert-text-to-base64>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-text-to-base64")
+
+    assert session.status == SessionStatus.COMPLETED
+    import base64
+    expected = base64.b64encode("hola mundo".encode("utf-8")).decode("utf-8")
+    assert session.context.get("resultado").to_string() == expected
+
+
+def test_convert_base64_to_text():
+    """convert-base64-to-text should decode base64 to text."""
+    import base64
+    encoded = base64.b64encode("hola mundo".encode("utf-8")).decode("utf-8")
+
+    xml = f"""
+    <francis-workflow>
+        <box-def name="resultado">
+            <convert-base64-to-text>{encoded}</convert-base64-to-text>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-base64-to-text")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("resultado").to_string() == "hola mundo"
+
+
+def test_convert_json_to_csv():
+    """convert-json-to-csv should convert JSON array to CSV."""
+    xml = """
+    <francis-workflow>
+        <box-def name="resultado">
+            <convert-json-to-csv>[{"nombre": "Casa", "precio": "100000"}, {"nombre": "Depto", "precio": "80000"}]</convert-json-to-csv>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-json-to-csv")
+
+    assert session.status == SessionStatus.COMPLETED
+    result = session.context.get("resultado").to_string()
+    assert "nombre,precio" in result
+    assert "Casa" in result
+    assert "Depto" in result
+
+
+def test_convert_csv_to_json():
+    """convert-csv-to-json should convert CSV to JSON array."""
+    xml = """
+    <francis-workflow>
+        <box-def name="resultado">
+            <convert-csv-to-json>nombre,precio
+Casa,100000
+Depto,80000</convert-csv-to-json>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-csv-to-json")
+
+    assert session.status == SessionStatus.COMPLETED
+    result = session.context.get("resultado").to_string()
+    assert "Casa" in result
+    assert "100000" in result
+
+
+def test_convert_xml_to_csv():
+    """convert-xml-to-csv should convert XML to CSV."""
+    xml = """
+    <francis-workflow>
+        <box-def name="resultado">
+            <convert-xml-to-csv>&lt;items&gt;&lt;item&gt;&lt;nombre&gt;Casa&lt;/nombre&gt;&lt;precio&gt;100000&lt;/precio&gt;&lt;/item&gt;&lt;/items&gt;</convert-xml-to-csv>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-xml-to-csv")
+
+    assert session.status == SessionStatus.COMPLETED
+    result = session.context.get("resultado").to_string()
+    assert "nombre" in result
+    assert "Casa" in result
+
+
+def test_convert_text_to_url():
+    """convert-text-to-url should encode text for URL use."""
+    xml = """
+    <francis-workflow>
+        <box-def name="resultado">
+            <convert-text-to-url>departamento en santiago</convert-text-to-url>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-text-to-url")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("resultado").to_string() == "departamento%20en%20santiago"
+
+
+def test_convert_url_to_text():
+    """convert-url-to-text should decode URL-encoded string."""
+    xml = """
+    <francis-workflow>
+        <box-def name="resultado">
+            <convert-url-to-text>departamento%20en%20santiago</convert-url-to-text>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-url-to-text")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("resultado").to_string() == "departamento en santiago"
+
+
+def test_convert_html_entities_to_text():
+    """convert-html-entities-to-text should decode HTML entities."""
+    xml = """
+    <francis-workflow>
+        <box-def name="resultado">
+            <convert-html-entities-to-text>Casa &amp;amp; Jard&amp;iacute;n</convert-html-entities-to-text>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-html-entities-to-text")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert session.context.get("resultado").to_string() == "Casa & Jardín"

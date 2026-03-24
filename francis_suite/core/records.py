@@ -659,7 +659,7 @@ class FRecord(FVariable):
         Args:
             format:           json, csv, ndjson
             path:             output file path
-            include_metadata: if True, wraps output with public metadata (json only)
+            include_metadata: if True, embeds public metadata (json / ndjson / csv)
             session:          FrancisSession — used to compute metadata fields
         """
         output_path = Path(path)

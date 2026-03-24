@@ -41,7 +41,7 @@ class RecordSaveHand(AbstractHand):
     Notes:
         - include-metadata only works if <record-metadata> was declared in record-create
         - Public metadata is only written when status=completed
-        - For private/full metadata use <record-save-meta>
+        - For private/full metadata use <record-save-metadata>
 
     Returns:
         FEmptyVariable always.

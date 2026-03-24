@@ -1121,6 +1121,7 @@ def test_shared_box_def_replace_true_overwrites():
     assert session.status == SessionStatus.COMPLETED
     assert session.context.get("resultado").to_string() == "staging"
 
+
 def test_shared_box_accessible_as_variable():
     """shared-box-def variable should be accessible via ${variable} syntax."""
     xml = """

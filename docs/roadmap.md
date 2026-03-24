@@ -8,10 +8,7 @@ Low-code, declarativo, extensible, cloud-ready.
 ## ⬜ Ahora — Urgente
 
 - [x] RecordKey — identificador único por record para evitar duplicados
-- [ ] Formatos adicionales de record-save — xml, excel, parquet, html, txt
-- [ ] record-filter — filtrar rows antes de guardar
-- [ ] record-sort — ordenar por campo
-- [ ] workflow-param — como hand XML (CLI --param ya implementado)
+- [ ] Formatos adicionales de record-save — xml, excel, parquet, html, txt (a discutir antes de implementar)
 
 ---
 
@@ -130,13 +127,11 @@ Base implementada y funcionando.
 
 ### Pendiente del sistema de records:
 ```
-record-key          → deduplicación
-record-filter       → filtrar rows
-record-sort         → ordenar rows
 record-store-all    → guarda todos en una box
 record-view-content → navega record por record (Plugin VSCode)
-xml, excel, parquet, html, txt como formatos de record-save
+xml, excel, parquet, html, txt como formatos de record-save (diseño en guides/record-save-formats.md)
 ```
+Filtrado u orden de filas: fuera del engine por ahora (script externo, Pandas, etc.).
 
 ### Tipos de field implementados:
 ```
@@ -172,20 +167,6 @@ Solo se escribe si status=completed.
 
 ---
 
-## ⬜ Trabajando en ello — Variables y control
-
-### `workflow-param` — Parámetros de entrada (CLI ya implementado)
-```xml
-<francis-workflow>
-    <workflow-param name="ciudad"   default="santiago"/>
-    <workflow-param name="api_key"  from-env="PORTAL_API_KEY"/>
-</francis-workflow>
-```
-- CLI `--param KEY=VALUE` ya funciona — inyecta variables como shared-box
-- El hand XML `workflow-param` está pendiente de implementar
-
----
-
 ## ⬜ Pendiente — Observabilidad y control de ejecución
 
 Ver ADR-003 para diseño completo.
@@ -218,6 +199,18 @@ running, completed, failed, paused
 ---
 
 ## ⬜ Futuro
+
+### `workflow-param` — opcional (sin prioridad ahora)
+
+Hand XML para declarar defaults o `from-env` en el archivo. **No está planeado implementarlo pronto:** la inyección vía CLI `--param`, código con `run_session` / shared-box, y perfiles del plugin cubren el caso. Si más adelante se necesita, se diseña y se agrega.
+
+```xml
+<!-- idea — solo referencia, no implementado -->
+<workflow-param name="ciudad"   default="santiago"/>
+<workflow-param name="api_key"  from-env="PORTAL_API_KEY"/>
+```
+
+- Hoy: `--param` y `set_shared_box` antes de ejecutar — ver [guides/sensitive.md](guides/sensitive.md).
 
 ### Plugin VSCode
 Ver ADR-003 para diseño completo.

@@ -361,8 +361,10 @@ francis-suite run workflow.xml
 francis-suite run workflow.xml --param ciudad=santiago --param paginas=10
 ```
 
-Variables inyectadas con --param se guardan como shared-box antes de ejecutar.
-Valores sensibles nunca aparecen en logs — solo "[PARAMS] Context variables loaded."
+Variables inyectadas con `--param` se guardan como shared-box antes de ejecutar.
+Valores sensibles nunca aparecen en logs del CLI — solo `[PARAMS] Context variables loaded.`
+
+Referencia de `<record-save>` (json / csv / ndjson): [guides/record-save.md](guides/record-save.md).
 
 ---
 
@@ -420,8 +422,7 @@ FYamlParser convierte YAML → FNode tree. El engine no cambia.
 | Tests | todos compatibles Windows/Linux/Mac | ✅ |
 | RecordKey | deduplicación por hash (`<record-key>` / `<key-field>`) | ✅ |
 | Formatos xml, excel, parquet | record-save adicional | ⬜ |
-| record-filter, record-sort | filtrado y ordenamiento | ⬜ |
-| workflow-param como hand XML | --param ya funciona en CLI | ⬜ |
+| workflow-param como hand XML | opcional / futuro — sin prioridad; hoy `--param` + inyección en código | ⬜ |
 | Plugin VSCode | syntax highlighting y debug | ⬜ |
 | Nuevas fuentes | pdf, excel, ia, playwright | ⬜ |
 | Storage cloud | fsspec | ⬜ |

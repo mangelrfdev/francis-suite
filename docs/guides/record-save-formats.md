@@ -3,6 +3,8 @@
 Documento de **diseño** para extender `record-save` más allá de json / csv / ndjson.
 Se va a ir **ajustando** cuando exista implementación; la intención es que la idea no se pierda.
 
+**Implementado hoy:** [record-save.md](record-save.md) (atributos y comportamiento real de json / csv / ndjson).
+
 **Relacionado:** `record-save-metadata` (metadata **privada** sin rows), metadata pública en `record-create` (`<record-metadata>`), roadmap (formatos pendientes), tests golden / comparación de contenido (pendiente, ver sección al final).
 
 ---
@@ -218,8 +220,8 @@ Nombres **orientativos** (estilo Francis: autodescriptivos). No todos aplican a 
 
 ## Pendientes relacionados
 
-- **RecordKey** — implementación en engine; ver `docs/roadmap.md`.
-- **record-filter** / **record-sort** — antes o después de guardar según diseño.
+- **RecordKey** — implementado; ver `docs/roadmap.md`.
+- **Filtrado / orden de filas** — no planeado como hands dedicados; usar pipeline externo o librerías cuando haga falta.
 - **Tests automatizados** — archivos expected + comparación de contenido; `total_records` como señal rápida + diff completo (no solo conteo).
 
 ---

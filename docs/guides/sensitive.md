@@ -105,14 +105,15 @@ El valor nunca aparece en el output del CLI.
 
 ---
 
-## Uso combinado con from-env (futuro)
+## Hand `workflow-param` con from-env (opcional / futuro)
+
+Si algún día se implementa el hand en XML, podría verse así (hoy no existe en el motor):
 
 ```xml
 <workflow-param name="api_key" from-env="OPENAI_API_KEY"/>
 ```
 
-La key viene del sistema operativo — nunca hardcodeada, nunca en git.
-Se maskea automáticamente en logs por el nombre `api_key`.
+Hoy la key suele venir de `--param` o de inyección en código. La idea sería la misma: valor desde el sistema operativo — nunca hardcodeada en git — y masking en logs por el nombre `api_key`.
 
 ---
 

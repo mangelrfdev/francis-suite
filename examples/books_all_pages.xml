@@ -8,6 +8,15 @@
     <box-def name="pagina">0</box-def>
     <box-def name="contador">0</box-def>
 
+    <!-- Record: una fila por libro (mismo scrape, también en structured data) -->
+    <record-create name="booksRecords">
+        <record-set-group name="book" required="true">
+            <record-set-field name="record_key" type="string" required="true"/>
+            <record-set-field name="titulo"           type="string" required="true"/>
+            <record-set-field name="precio"           type="string" required="true"/>
+        </record-set-group>
+    </record-create>
+
     <!-- Crear archivo de salida -->
     <file-write path="output/todos_los_libros.txt" mkdir="true"> </file-write>
 
@@ -50,8 +59,18 @@
                 <box-def name="contador">
                     <evaluate>${contador} + 1</evaluate>
                 </box-def>
+                <box-def name="record_key">
+                    <compose>book-${contador}</compose>
+                </box-def>
                 <log>contador: ${contador}</log>
                 <file-write path="output/todos_los_libros.txt" append="true" newline="true">${contador} - Title: ${titulo} - Price: ${precio}</file-write>
+                <record-add to="booksRecords">
+                    <record-add-group name="book">
+                        <record-add-field name="record_key">${record_key}</record-add-field>
+                        <record-add-field name="titulo">${titulo}</record-add-field>
+                        <record-add-field name="precio">${precio}</record-add-field>
+                    </record-add-group>
+                </record-add>
             </loop-body>
         </loop>
 
@@ -74,6 +93,16 @@
         <sleep ms="1000"/>
     </while>
 
-    <log>Scraping completado — ver output/todos_los_libros.txt</log>
+    <log>Scraping completado — ver output/todos_los_libros.txt y los exports en output/books.*</log>
+
+    <!-- Mismos datos en todos los formatos soportados por record-save -->
+    <record-save from="booksRecords" format="json"     path="output/books.json"/>
+    <record-save from="booksRecords" format="csv"      path="output/books.csv"/>
+    <record-save from="booksRecords" format="ndjson"   path="output/books.ndjson"/>
+    <record-save from="booksRecords" format="xml"      path="output/books.xml"/>
+    <record-save from="booksRecords" format="html"    path="output/books.html" html-title="Books to Scrape"/>
+    <record-save from="booksRecords" format="txt"     path="output/books.txt"/>
+    <record-save from="booksRecords" format="excel"   path="output/books.xlsx" sheet-name="Libros"/>
+    <record-save from="booksRecords" format="parquet" path="output/books.parquet"/>
 
 </francis-workflow>

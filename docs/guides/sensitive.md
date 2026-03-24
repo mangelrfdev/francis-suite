@@ -93,7 +93,7 @@ Las variables inyectadas con `--param` no se muestran en logs.
 Si la variable tiene nombre sensible, igual se maskea si aparece en un `<log>`.
 
 ```bash
-python -m francis_suite.cli run scraper.xml --param api_key=sk-abc123xyz
+francis-suite run scraper.xml --param api_key=sk-abc123xyz
 ```
 
 Output:

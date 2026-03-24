@@ -1,11 +1,10 @@
 # record-save — Formatos, metadata y atributos (diseño)
 
-Documento de **diseño** para extender `record-save` más allá de json / csv / ndjson.
-Se va a ir **ajustando** cuando exista implementación; la intención es que la idea no se pierda.
+Documento de **diseño evolutivo** para `record-save`: ideas que aún no están todas en código (`metadata-placement`, plantillas txt libres, etc.).
 
-**Implementado hoy:** [record-save.md](record-save.md) (atributos y comportamiento real de json / csv / ndjson).
+**Implementación actual (incl. xml, html, txt, excel, parquet), ejemplos y tabla “cuándo usar cada formato”:** [record-save.md](record-save.md) (incluye `examples/books_all_pages.xml`).
 
-**Relacionado:** `record-save-metadata` (metadata **privada** sin rows), metadata pública en `record-create` (`<record-metadata>`), roadmap (formatos pendientes), tests golden / comparación de contenido (pendiente, ver sección al final).
+**Relacionado:** `record-save-metadata` (metadata **privada** sin rows), metadata pública en `record-create` (`<record-metadata>`), tests golden / comparación de contenido (pendiente, ver sección al final).
 
 ---
 
@@ -231,3 +230,4 @@ Nombres **orientativos** (estilo Francis: autodescriptivos). No todos aplican a 
 | Fecha | Nota |
 |-------|------|
 | 2026-03-24 | Primera versión de guía (diseño acordado en conversación) |
+| 2026-03-24 | Alineación con implementación base en `record-save.md`; ejemplos multi-formato en `books_all_pages.xml` |

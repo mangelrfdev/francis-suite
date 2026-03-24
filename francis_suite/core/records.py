@@ -22,6 +22,7 @@ Metadata system:
 
 from __future__ import annotations
 import hashlib
+import html as html_module
 import json
 import csv
 import uuid
@@ -30,9 +31,10 @@ import sys
 import socket
 import platform
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from typing import Any
+from lxml import etree
 from francis_suite.core.base import FVariable
 
 
@@ -41,6 +43,38 @@ from francis_suite.core.base import FVariable
 # ---------------------------------------------------------------------------
 
 FRANCIS_SUITE_VERSION = "0.1.0"
+
+
+# ---------------------------------------------------------------------------
+# XML export helpers (record-save format xml)
+# ---------------------------------------------------------------------------
+
+def _sanitize_xml_tag(name: str) -> str:
+    s = re.sub(r"[^0-9A-Za-z_\-.]", "_", str(name))
+    if s and s[0].isdigit():
+        s = "_" + s
+    return s or "field"
+
+
+def _append_xml_from_value(parent: etree._Element, key: str, value: Any) -> None:
+    tag = _sanitize_xml_tag(key)
+    if isinstance(value, dict):
+        el = etree.SubElement(parent, tag)
+        for k, v in value.items():
+            _append_xml_from_value(el, k, v)
+    elif isinstance(value, (list, tuple)):
+        el = etree.SubElement(parent, tag)
+        for i, item in enumerate(value):
+            if isinstance(item, dict):
+                sub = etree.SubElement(el, "item", index=str(i))
+                for k, v in item.items():
+                    _append_xml_from_value(sub, k, v)
+            else:
+                sub = etree.SubElement(el, "item", index=str(i))
+                sub.text = "" if item is None else str(item)
+    else:
+        el = etree.SubElement(parent, tag)
+        el.text = "" if value is None else str(value)
 
 
 # ---------------------------------------------------------------------------
@@ -652,15 +686,28 @@ class FRecord(FVariable):
 
     # --- Persistence ---
 
-    def save(self, format: str, path: str, include_metadata: bool = False, session=None) -> None:
+    def save(
+        self,
+        format: str,
+        path: str,
+        *,
+        include_metadata: bool = False,
+        session=None,
+        sheet_name: str = "Data",
+        metadata_sheet_name: str = "Metadata",
+        html_title: str | None = None,
+    ) -> None:
         """
         Persist the record collection to disk.
 
         Args:
-            format:           json, csv, ndjson
-            path:             output file path
-            include_metadata: if True, embeds public metadata (json / ndjson / csv)
-            session:          FrancisSession — used to compute metadata fields
+            format:                 json, csv, ndjson, xml, html, txt, excel, xlsx, parquet
+            path:                   output file path
+            include_metadata:       if True, embeds public metadata where the format supports it
+            session:                FrancisSession — workflow name and metadata fields
+            sheet_name:             excel — main data sheet name
+            metadata_sheet_name:    excel — second sheet for public metadata (if include_metadata)
+            html_title:             html — <title> and main heading (default: workflow name)
         """
         output_path = Path(path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -673,10 +720,31 @@ class FRecord(FVariable):
             self._save_csv(output_path, include_metadata=include_metadata)
         elif fmt == "ndjson":
             self._save_ndjson(output_path, include_metadata=include_metadata, session=session)
+        elif fmt == "xml":
+            self._save_xml(output_path, include_metadata=include_metadata, session=session)
+        elif fmt == "html":
+            self._save_html(
+                output_path,
+                include_metadata=include_metadata,
+                session=session,
+                html_title=html_title,
+            )
+        elif fmt == "txt":
+            self._save_txt(output_path, include_metadata=include_metadata)
+        elif fmt in ("excel", "xlsx"):
+            self._save_excel(
+                output_path,
+                include_metadata=include_metadata,
+                session=session,
+                sheet_name=sheet_name,
+                metadata_sheet_name=metadata_sheet_name,
+            )
+        elif fmt == "parquet":
+            self._save_parquet(output_path)
         else:
             raise ValueError(
                 f"[RECORD] unsupported format '{format}'. "
-                f"Valid formats: json, csv, ndjson"
+                f"Valid formats: json, csv, ndjson, xml, html, txt, excel, xlsx, parquet"
             )
 
         print(f"[RECORD] saved {self.count} rows to '{output_path}' as {fmt}")
@@ -740,6 +808,184 @@ class FRecord(FVariable):
             writer = csv.DictWriter(f, fieldnames=keys, extrasaction="ignore")
             writer.writeheader()
             writer.writerows(flat_rows)
+
+    def _workflow_name(self, session) -> str:
+        if session is None:
+            return ""
+        return str(getattr(session, "workflow_name", "") or "")
+
+    def _save_xml(
+        self,
+        path: Path,
+        *,
+        include_metadata: bool = False,
+        session=None,
+    ) -> None:
+        wf = self._workflow_name(session)
+        root = etree.Element(
+            "Records",
+            workflow=wf,
+            total_records=str(len(self._rows)),
+        )
+
+        if include_metadata and self._schema.has_public_metadata:
+            public_meta = self.build_public_metadata(session)
+            if public_meta:
+                meta_el = etree.SubElement(root, "public-metadata")
+                for k, v in public_meta.items():
+                    fe = etree.SubElement(meta_el, "field", name=str(k))
+                    fe.text = "" if v is None else str(v)
+
+        for row in self._rows:
+            attrs: dict[str, str] = {"workflow": wf}
+            if self._schema.record_key_keys:
+                attrs["recordKey"] = self._make_record_key_hash(row)
+            rec_el = etree.SubElement(root, "record", attrib=attrs)
+            for gk, gv in row.items():
+                _append_xml_from_value(rec_el, gk, gv)
+
+        tree = etree.ElementTree(root)
+        tree.write(
+            str(path),
+            encoding="utf-8",
+            xml_declaration=True,
+            pretty_print=True,
+        )
+
+    def _save_html(
+        self,
+        path: Path,
+        *,
+        include_metadata: bool = False,
+        session=None,
+        html_title: str | None = None,
+    ) -> None:
+        if not self._rows:
+            return
+
+        flat_rows = [self._flatten(row) for row in self._rows]
+        keys: list[str] = []
+        for row in flat_rows:
+            for key in row:
+                if key not in keys:
+                    keys.append(key)
+
+        title = (html_title or "").strip() or self._workflow_name(session) or "Records"
+        title_esc = html_module.escape(title)
+
+        parts: list[str] = [
+            "<!DOCTYPE html>",
+            '<html lang="en">',
+            "<head>",
+            '<meta charset="utf-8"/>',
+            f"<title>{title_esc}</title>",
+            "<style>table{border-collapse:collapse;font-family:sans-serif;}th,td{border:1px solid #ccc;padding:4px 8px;}th{background:#f0f0f0;}</style>",
+            "</head>",
+            "<body>",
+            f"<h1>{title_esc}</h1>",
+        ]
+
+        if include_metadata and self._schema.has_public_metadata:
+            public_meta = self.build_public_metadata(session)
+            if public_meta:
+                parts.append("<section><h2>Metadata</h2><table>")
+                for k, v in public_meta.items():
+                    parts.append(
+                        "<tr><td>"
+                        + html_module.escape(str(k))
+                        + "</td><td>"
+                        + html_module.escape("" if v is None else str(v))
+                        + "</td></tr>"
+                    )
+                parts.append("</table></section>")
+
+        parts.append("<table><thead><tr>")
+        for k in keys:
+            parts.append(f"<th>{html_module.escape(k)}</th>")
+        parts.append("</tr></thead><tbody>")
+        for row in flat_rows:
+            parts.append("<tr>")
+            for k in keys:
+                cell = row.get(k, "")
+                parts.append(f"<td>{html_module.escape(str(cell))}</td>")
+            parts.append("</tr>")
+        parts.append("</tbody></table></body></html>")
+
+        path.write_text("\n".join(parts), encoding="utf-8")
+
+    def _save_txt(self, path: Path, *, include_metadata: bool = False) -> None:
+        if not self._rows:
+            return
+
+        flat_rows = [self._flatten(row) for row in self._rows]
+        keys: list[str] = []
+        for row in flat_rows:
+            for key in row:
+                if key not in keys:
+                    keys.append(key)
+
+        lines: list[str] = []
+        if include_metadata and self._schema.has_public_metadata:
+            for field in self._schema.public_metadata_fields:
+                value = field["value"] or ""
+                lines.append(f"# {field['name']}: {value}")
+
+        lines.append("\t".join(keys))
+        for row in flat_rows:
+            lines.append("\t".join(str(row.get(k, "")) for k in keys))
+
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    def _save_excel(
+        self,
+        path: Path,
+        *,
+        include_metadata: bool = False,
+        session=None,
+        sheet_name: str = "Data",
+        metadata_sheet_name: str = "Metadata",
+    ) -> None:
+        if not self._rows:
+            return
+
+        from openpyxl import Workbook
+
+        flat_rows = [self._flatten(row) for row in self._rows]
+        keys: list[str] = []
+        for row in flat_rows:
+            for key in row:
+                if key not in keys:
+                    keys.append(key)
+
+        wb = Workbook()
+        ws = wb.active
+        assert ws is not None
+        ws.title = sheet_name[:31] if sheet_name else "Data"
+
+        ws.append(keys)
+        for row in flat_rows:
+            ws.append([row.get(k, "") for k in keys])
+
+        if include_metadata and self._schema.has_public_metadata:
+            public_meta = self.build_public_metadata(session)
+            if public_meta:
+                ms = wb.create_sheet(metadata_sheet_name[:31] if metadata_sheet_name else "Metadata")
+                ms.append(["name", "value"])
+                for k, v in public_meta.items():
+                    ms.append([k, "" if v is None else v])
+
+        wb.save(path)
+
+    def _save_parquet(self, path: Path) -> None:
+        if not self._rows:
+            return
+
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+
+        flat_rows = [self._flatten(row) for row in self._rows]
+        table = pa.Table.from_pylist(flat_rows)
+        pq.write_table(table, path, compression="snappy")
 
     def _flatten(self, obj: dict, prefix: str = "") -> dict:
         result = {}

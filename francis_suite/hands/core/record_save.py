@@ -29,14 +29,20 @@ class RecordSaveHand(AbstractHand):
 
     Attributes:
         from             (required): name of the record collection.
-        format           (required): output format — json, csv, ndjson.
+        format           (required): json, csv, ndjson, xml, html, txt, excel, xlsx, parquet
         path             (required): output file path. Supports ${variables}.
         include-metadata (optional): include public metadata in output. Default: false.
+        sheet-name       (optional): excel — main sheet name (default: Data)
+        metadata-sheet-name (optional): excel — sheet for public metadata (default: Metadata)
+        html-title       (optional): html — page title and main heading (default: workflow name)
 
     Formats:
-        json   — array of nested objects — for APIs and web systems
-        csv    — flat rows with dot notation — for Excel, Sheets, Pandas
-        ndjson — one JSON per line — ideal for BigQuery, Spark, Polars
+        json, csv, ndjson — as before
+        xml     — Records root, one record per row (nested elements from schema)
+        html    — simple table report (UTF-8)
+        txt     — tab-separated (TSV), header row
+        excel   — .xlsx via openpyxl
+        parquet — columnar; flattened rows
 
     Notes:
         - include-metadata only works if <record-metadata> was declared in record-create
@@ -62,6 +68,10 @@ class RecordSaveHand(AbstractHand):
         fmt              = engine.resolve(self.require_attr("format"))
         path             = engine.resolve(self.require_attr("path"))
         include_metadata = self.attr("include-metadata", "false").lower() == "true"
+        sheet_name         = engine.resolve(self.attr("sheet-name", "Data"))
+        metadata_sheet_name = engine.resolve(self.attr("metadata-sheet-name", "Metadata"))
+        html_title_raw     = self.attr("html-title", "")
+        html_title         = engine.resolve(html_title_raw) if html_title_raw.strip() else None
 
         record = self.context.get_shared_box(record_name)
 
@@ -76,9 +86,12 @@ class RecordSaveHand(AbstractHand):
             return FEmptyVariable()
 
         record.save(
-            format           = fmt,
-            path             = path,
-            include_metadata = include_metadata,
-            session          = self.session,
+            fmt,
+            path,
+            include_metadata=include_metadata,
+            session=self.session,
+            sheet_name=sheet_name,
+            metadata_sheet_name=metadata_sheet_name,
+            html_title=html_title,
         )
         return FEmptyVariable()

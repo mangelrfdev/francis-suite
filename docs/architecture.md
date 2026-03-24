@@ -291,7 +291,7 @@ Files:        file-read, file-write (encoding: utf-8, binary, newline)
               file-manage (8 actions)
 
 Records:      record-create, record-add, record-last-added, record-count
-              record-save (json, csv, ndjson)
+              record-save (json, csv, ndjson, xml, html, txt, excel, parquet)
               record-save-metadata (solo metadata privada, sin rows)
               record-private-metadata (agrega metadata en cualquier parte)
 
@@ -345,7 +345,7 @@ httpx-call + file-write los reemplaza completamente.
     </loop-body>
 </loop>
 
-<!-- 3. guardar data — metadata pública se incluye si fue declarada -->
+<!-- 3. guardar data — un formato (o varios <record-save> con distinto format/path) -->
 <record-save from="propiedadesRecords" format="ndjson" path="output/propiedades.ndjson"/>
 
 <!-- 4. guardar solo metadata privada — para vos, sin duplicar los rows -->
@@ -364,7 +364,7 @@ francis-suite run workflow.xml --param ciudad=santiago --param paginas=10
 Variables inyectadas con `--param` se guardan como shared-box antes de ejecutar.
 Valores sensibles nunca aparecen en logs del CLI — solo `[PARAMS] Context variables loaded.`
 
-Referencia de `<record-save>` (json / csv / ndjson): [guides/record-save.md](guides/record-save.md).
+Referencia de `<record-save>` (todos los formatos, muestras, ejemplo `books_all_pages.xml`): [guides/record-save.md](guides/record-save.md).
 
 ---
 
@@ -375,10 +375,13 @@ Sistema de deduplicación por hash (SHA-256) de los valores normalizados de los 
 Si el key ya existe al hacer `record-add` → no se agrega la fila y se loguea `[RECORD] duplicate key — skipping (key: …)`.
 Ver `docs/roadmap.md` para XML de ejemplo.
 
-### Formatos adicionales de record-save
-xml, excel (con hoja de metadata), parquet, html, txt con template.
+### record-save — formatos base (implementados)
+`json`, `csv`, `ndjson`, `xml`, `html`, `txt` (TSV), `excel`/`xlsx`, `parquet`. Referencia y ejemplo `books_all_pages.xml`: [guides/record-save.md](guides/record-save.md).
 
-**Guía de diseño (metadata por formato, atributos, ejemplos):** [guides/record-save-formats.md](guides/record-save-formats.md).
+### record-save — evolutivo
+Ideas no cubiertas aún en código: `metadata-placement` unificado, txt con plantilla libre, etc.
+
+**Guía de diseño:** [guides/record-save-formats.md](guides/record-save-formats.md).
 
 ### Plugin VSCode
 Syntax highlighting, autocompletado, tree de ejecución, inspector de variables,
@@ -421,7 +424,8 @@ FYamlParser convierte YAML → FNode tree. El engine no cambia.
 | Auto metadata privada por sesión | `sessions/<session_id>/*_private_metadata.json` sin XML; `FRANCIS_AUTO_RECORD_METADATA=0` desactiva | ✅ |
 | Tests | todos compatibles Windows/Linux/Mac | ✅ |
 | RecordKey | deduplicación por hash (`<record-key>` / `<key-field>`) | ✅ |
-| Formatos xml, excel, parquet | record-save adicional | ⬜ |
+| Formatos xml, html, txt, excel, parquet | record-save | ✅ |
+| metadata-placement / txt plantilla | record-save evolutivo | ⬜ |
 | workflow-param como hand XML | opcional / futuro — sin prioridad; hoy `--param` + inyección en código | ⬜ |
 | Plugin VSCode | syntax highlighting y debug | ⬜ |
 | Nuevas fuentes | pdf, excel, ia, playwright | ⬜ |

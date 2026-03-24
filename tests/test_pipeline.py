@@ -2722,6 +2722,180 @@ def test_record_save_ndjson(tmp_path):
     assert len(lines) == 2
 
 
+def test_record_save_xml(tmp_path):
+    """record-save should save record as XML."""
+    output = tmp_path / "test.xml"
+
+    xml = f"""
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">Casa</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-save from="testRecords" format="xml" path="{output.as_posix()}"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-record-save-xml")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert output.exists()
+    text = output.read_text(encoding="utf-8")
+    assert "Records" in text
+    assert "Casa" in text
+
+
+def test_record_save_html(tmp_path):
+    """record-save should save record as HTML table."""
+    output = tmp_path / "test.html"
+
+    xml = f"""
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">Casa</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-save from="testRecords" format="html" path="{output.as_posix()}" html-title="Test"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-record-save-html")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert output.exists()
+    text = output.read_text(encoding="utf-8")
+    assert "<table>" in text
+    assert "Casa" in text
+    assert "Test" in text
+
+
+def test_record_save_txt(tmp_path):
+    """record-save should save record as tab-separated text."""
+    output = tmp_path / "test.txt"
+
+    xml = f"""
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">Casa</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-save from="testRecords" format="txt" path="{output.as_posix()}"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-record-save-txt")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert output.exists()
+    lines = output.read_text(encoding="utf-8").strip().split("\n")
+    assert "item.nombre" in lines[0]
+    assert "Casa" in lines[1]
+
+
+def test_record_save_excel(tmp_path):
+    """record-save should save record as xlsx."""
+    output = tmp_path / "test.xlsx"
+
+    xml = f"""
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">Casa</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-save from="testRecords" format="excel" path="{output.as_posix()}" sheet-name="Items"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-record-save-excel")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert output.exists()
+
+    from openpyxl import load_workbook
+
+    wb = load_workbook(output)
+    assert "Items" in wb.sheetnames
+    ws = wb["Items"]
+    assert ws.cell(row=1, column=1).value == "item.nombre"
+    assert ws.cell(row=2, column=1).value == "Casa"
+
+
+def test_record_save_parquet(tmp_path):
+    """record-save should save record as parquet."""
+    output = tmp_path / "test.parquet"
+
+    xml = f"""
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">Casa</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-save from="testRecords" format="parquet" path="{output.as_posix()}"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-record-save-parquet")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert output.exists()
+
+    import pyarrow.parquet as pq
+
+    table = pq.read_table(output)
+    assert table.num_rows == 1
+    assert table.column("item.nombre")[0].as_py() == "Casa"
+
+
 def test_record_add_without_create_fails():
     """record-add should fail if record was not created first."""
     xml = """

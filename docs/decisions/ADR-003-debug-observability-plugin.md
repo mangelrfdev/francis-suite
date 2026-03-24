@@ -62,9 +62,10 @@ comportarse correctamente con `<pause-task/>` y otros controles.
 ### Decisión:
 Variable de entorno del sistema `FRANCIS_ENV`:
 ```bash
-FRANCIS_ENV=prod python -m francis_suite.cli run workflow.xml
-FRANCIS_ENV=dev  python -m francis_suite.cli run workflow.xml
+FRANCIS_ENV=prod francis-suite run workflow.xml
+FRANCIS_ENV=dev  francis-suite run workflow.xml
 ```
+(Equivalente: `python -m francis_suite.cli run …` si ejecutás el módulo sin entrypoint instalado.)
 
 Default: `dev` si no se especifica.
 
@@ -78,14 +79,16 @@ Antes del Plugin VSCode, el CLI es la interfaz de debug.
 
 ```bash
 # correr normal
-python -m francis_suite.cli run workflow.xml
+francis-suite run workflow.xml
 
 # modo debug — pausa en cada <pause-task/> y espera Enter para continuar
-python -m francis_suite.cli run workflow.xml --debug
+francis-suite run workflow.xml --debug
 
 # modo step — avanza hand por hand, espera Enter en cada una
-python -m francis_suite.cli run workflow.xml --step
+francis-suite run workflow.xml --step
 ```
+
+> **Nota:** `--debug` y `--step` son parte del diseño de este ADR; el CLI actual puede no implementarlos todavía — ver `francis_suite/cli.py`.
 
 ### `--debug`:
 - El workflow corre normal
@@ -123,10 +126,12 @@ WARNING: <pause-task/> found at line 103. Remove before deploying to production.
 ```
 
 ### Cuándo se ejecuta:
-- Siempre — antes de cada ejecución, automáticamente
-- También disponible como comando CLI separado:
+- **Diseño:** antes de cada ejecución y como comando `validate` dedicado.
+- **Hoy:** el validador inline y `francis-suite validate` pueden no estar implementados — el `run` parsea el XML y falla si el XML es inválido o hay tags desconocidos.
+
 ```bash
-python -m francis_suite.cli validate workflow.xml
+# previsto cuando exista el subcomando
+francis-suite validate workflow.xml
 ```
 
 ### Relación con el Plugin VSCode:

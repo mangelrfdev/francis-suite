@@ -18,6 +18,18 @@ uv sync
 francis-suite run examples/books_scraper.xml
 ```
 
+## Examples
+
+| File | What it shows |
+|------|----------------|
+| `examples/books_scraper.xml` | Single page, loop over books, `<log>` |
+| `examples/books_all_pages.xml` | Paginated scrape + `record-create` / `record-add` + **eight** `<record-save>` formats (`output/books.*`) |
+| `examples/test_boolean.xml`, `examples/test_sensitive.xml` | Tiny workflows for conditions / sensitive masking |
+
+Full **record-save** reference (formats, attributes, samples): [docs/guides/record-save.md](docs/guides/record-save.md).
+
+**Índice de toda la documentación:** [docs/README.md](docs/README.md).
+
 ## Example
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -60,8 +72,8 @@ francis-suite run examples/books_scraper.xml
 # Run a workflow
 francis-suite run workflow.xml
 
-# Pass variables
-francis-suite run workflow.xml --var url=https://ejemplo.com --var token=SECRET
+# Pass variables (shared-box)
+francis-suite run workflow.xml --param url=https://ejemplo.com --param token=SECRET
 
 # Help
 francis-suite --help
@@ -78,6 +90,10 @@ francis-suite --version
 - **FastAPI** — REST API / IDE backend
 - **simpleeval** — safe expression evaluation engine
 - **uv** — packaging and environment management
+- **openpyxl** / **pyarrow** — Excel and Parquet export (`record-save`)
+- **psutil** — RAM / metrics for record metadata
+
+See `pyproject.toml` for the full dependency list.
 
 ## Dev Stack
 
@@ -104,15 +120,19 @@ francis_suite/
 │   ├── events.py       # EventBus
 │   └── expressions.py  # FrancisExpression engine
 ├── hands/
-│   ├── core/       # built-in hands
-│   └── ext/        # external hands (ftp, mail, zip, browser)
+│   └── core/       # built-in hands (ext/ planned for plugins)
 tests/
 docs/
 examples/
-└── books_scraper.xml
+├── books_scraper.xml
+├── books_all_pages.xml
+├── test_boolean.xml
+└── test_sensitive.xml
 ```
 
-## Core Hands
+## Core Hands (partial list)
+
+For the full set of built-in tags, see [docs/architecture.md](docs/architecture.md) (`Hands implementados`).
 
 | Tag | Description |
 |---|---|
@@ -196,8 +216,8 @@ Available string methods: `isEmpty()`, `isNotEmpty()`, `toUpperCase()`, `toLower
 
 ## Nomenclature
 
-Francis Suite uses its own tag naming convention.
-See [nomenclatures.yaml](nomenclatures.yaml) for the full mapping.
+Tag and attribute naming is documented in [docs/architecture.md](docs/architecture.md)
+(rules for hands, `engine.resolve`, shared-box, records, etc.).
 
 ## Development
 ```bash

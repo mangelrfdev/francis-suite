@@ -5,10 +5,13 @@ Low-code, declarativo, extensible, cloud-ready.
 
 ---
 
-## ⬜ Ahora — Urgente
+## ✅ Ahora — al día (últimos hitos)
 
 - [x] RecordKey — identificador único por record para evitar duplicados
-- [ ] Formatos adicionales de record-save — xml, excel, parquet, html, txt (a discutir antes de implementar)
+- [x] Formatos adicionales de record-save — xml, html, txt (TSV), excel/xlsx, parquet — ver [guides/record-save.md](guides/record-save.md)
+- [x] Documentación + ejemplo `examples/books_all_pages.xml` exportando los ocho formatos
+
+**Siguiente foco:** ver secciones **Pendiente** y **Futuro** abajo (plugin, nuevas fuentes, evolutivo `record-save`).
 
 ---
 
@@ -66,46 +69,13 @@ record-add con key duplicado → skip con log:
 
 ---
 
-## ⬜ Formatos adicionales de record-save
+## ✅ Formatos extra de record-save — implementado (base)
 
-**Guía de diseño (no perder contexto):** [guides/record-save-formats.md](guides/record-save-formats.md) — metadata pública vs privada, `metadata-placement`, atributos por formato, XML de ejemplo, audiencias.
+**Referencia de atributos y comportamiento:** [guides/record-save.md](guides/record-save.md).
 
-### Formatos a implementar:
+Incluye: `xml`, `html`, `txt` (tab-separated), `excel` / `xlsx`, `parquet` (además de json, csv, ndjson).
 
-```
-xml     — para sistemas legacy, SAP, integraciones B2B
-          <Records workflow="PORTAL-INMOBILIARIO" total_records="1000">
-              <record workflow="PORTAL-INMOBILIARIO" recordKey="IdPortal1111">
-                  <propiedad>
-                      <titulo>Casa</titulo>
-                  </propiedad>
-              </record>
-          </Records>
-
-excel   — para clientes no técnicos
-          columnas: workflow, recordKey, propiedad.titulo, propiedad.precio
-          metadata en hoja separada (Sheet2) si se declara <record-metadata>
-          atributos: sheet-name, include-metadata-sheet="true/false"
-
-parquet — para análisis de datos masivos, columnar, muy eficiente
-          ideal para BigQuery y Spark
-
-html    — para reportes visuales
-          tabla HTML con los rows
-
-txt     — libre con template
-          el usuario define el formato con ${variables}
-```
-
-### Atributos para excel:
-
-```xml
-<record-save from="propiedadesRecords"
-             format="excel"
-             path="output/propiedades.xlsx"
-             sheet-name="Propiedades"
-             include-metadata-sheet="true"/>
-```
+**Evolutivo / diseño avanzado** (`metadata-placement`, plantillas txt libres, etc.): [guides/record-save-formats.md](guides/record-save-formats.md).
 
 ---
 
@@ -129,7 +99,7 @@ Base implementada y funcionando.
 ```
 record-store-all    → guarda todos en una box
 record-view-content → navega record por record (Plugin VSCode)
-xml, excel, parquet, html, txt como formatos de record-save (diseño en guides/record-save-formats.md)
+mejoras record-save → metadata-placement, txt con plantilla, etc. (guides/record-save-formats.md)
 ```
 Filtrado u orden de filas: fuera del engine por ahora (script externo, Pandas, etc.).
 
@@ -200,6 +170,16 @@ running, completed, failed, paused
 
 ## ⬜ Futuro
 
+### Lenguaje de atajos / asistencia en editor (Cursor, VSCode, etc.)
+
+**Cuando el conjunto de hands y atributos esté más cerrado** (no es bloqueante para el core): definir un **contrato de metadatos** — schema o gramática — que permita en el IDE:
+
+- Tab / autocompletado de tags y atributos
+- Saber qué devuelve cada hand y qué valores puede llevar cada atributo
+- Misma idea usable desde Cursor rules, extensión VSCode o snippets compartidos
+
+El plugin “oficial” puede consumir ese mismo contrato. **Prioridad después** de estabilizar el lenguaje XML del workflow y la lista de hands.
+
 ### `workflow-param` — opcional (sin prioridad ahora)
 
 Hand XML para declarar defaults o `from-env` en el archivo. **No está planeado implementarlo pronto:** la inyección vía CLI `--param`, código con `run_session` / shared-box, y perfiles del plugin cubren el caso. Si más adelante se necesita, se diseña y se agrega.
@@ -267,12 +247,12 @@ FYamlParser convierte YAML → FNode tree. El engine no cambia.
 - [x] convert-html-entities-to-text
 - [x] pause-task — pausa en dev, warning en prod, FRANCIS_ENV
 - [x] Sistema de records base — record-create, record-add, record-last-added
-- [x] record-count, record-save (json, csv, ndjson)
+- [x] record-count, record-save (json, csv, ndjson, xml, html, txt, excel, parquet)
 - [x] record-save-metadata — solo metadata privada, sin rows
 - [x] record-private-metadata — agrega metadata en cualquier parte del workflow
 - [x] Sistema de metadata automática — psutil para RAM, calidad de datos
 - [x] Compatibilidad universal — pathlib, as_posix(), utf-8
 - [x] ADR-002 — formatos HTTP
 - [x] ADR-003 — debug, observabilidad, plugin VSCode
-- [x] 116 tests pasando
-- [x] Ejemplo books_all_pages.xml — 1000 libros extraídos
+- [x] 125 tests pasando (`pytest tests/`)
+- [x] Ejemplo `books_all_pages.xml` — scrape paginado del sitio demo books.toscrape.com + exports `output/books.*`

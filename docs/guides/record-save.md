@@ -6,6 +6,22 @@ Hand que persiste un `FRecord` en disco.
 
 ---
 
+## Journal incremental (`record-journal`) — NDJSON en vivo
+
+**Opcional**, bajo `<record-create>`: un archivo NDJSON **append-only** que se va escribiendo **durante** el workflow (no sustituye a `<record-save>`).
+
+| Pieza | `_type` |
+|-------|---------|
+| Apertura (si el archivo está vacío al crear el record) | `journal_header` — `session_id`, `workflow_name`, `record_name`, `started_at`, `francis_suite_version`, `status` inicial. |
+| Cada fila aceptada por `record-add` (tras normalizar; si `record-key` deduplica, **no** se escribe línea) | `record` — `data` (fila aplanada), `row_index`, `session_id`, `status`, `workflow_name`, versión. |
+| Al terminar la sesión (éxito o fallo; en el `finally` del runtime) | `process` — `status` (`completed` / `failed` / …), `rows_committed`, `error` si hubo excepción, `finished_at`. |
+
+Atributos del tag: `path` (obligatorio; `fsync="true|false"` para `flush` + `fsync` tras cada línea).
+
+**Uso típico:** path distinto al NDJSON del `<record-save>` (p. ej. `output/run.journal.ndjson` **vivo** vs `output/run.ndjson` **export final** con líneas `_type: export` + datos). Si el proceso corta antes de los `record-save`, el journal sigue siendo evidencia útil.
+
+---
+
 ## Metadatos de exportación (`record-export-*`)
 
 Declarás **pares clave/valor** (y valores de sistema) **una vez**, como **hijos de `<record-create>`** (junto con grupos, metadata, record-key, etc.). Cada `<record-save>` solo elige `format` y `path`: el mismo record puede volcarse a varios formatos en la misma corrida y los extras se **serializan donde el formato lo permita**; si un formato no tiene canal para eso, **no se escriben** (no hay error; el archivo de datos igual se genera).
@@ -14,21 +30,30 @@ Declarás **pares clave/valor** (y valores de sistema) **una vez**, como **hijos
 
 | Tag | Rol |
 |-----|-----|
-| `<record-export-attr name="...">valor</record-export-attr>` | Clave/valor libre; `name` y el cuerpo se resuelven al **guardar** con `engine.resolve()` (incluye `${...}`). |
+| `<record-export-attr name="..." required="false" show-attribute="true">valor</record-export-attr>` | Clave/valor libre; `name` y el cuerpo se resuelven al **guardar** con `engine.resolve()` (incluye `${...}`). `required` (default `false`): si es `true` y el valor queda vacío al guardar, falla. `show-attribute` (default `true`): si es `false` y la corrida se considera **exitosa** para export, la clave no se emite; si la sesión **no** terminó en éxito, el valor real **sí** se emite (para diagnóstico). |
+| `<record-export-root-attr name="..." …>valor</record-export-root-attr>` | Igual resolución que `record-export-attr`, pero pensado en **raíz** de export: va a `_export` en JSON/NDJSON y a atributos de `<Records>` en XML. |
 | `<record-export-system name="session_id"/>` | Incluye `session_id` de la corrida (UUID). Equivalente extra a `xml-include-root-session-id="true"` en `<record-save>`. |
 | `<record-export-system name="francis_suite_version"/>` | Constante de versión del framework. |
 | `<record-export-system name="exported_at"/>` | Marca UTC ISO-8601 al momento de guardar. |
+| `<record-export-system name="total_records"/>` | Número de filas al momento de guardar (string). |
+| `<record-export-system name="status_process"/>` | Estado de la sesión (`completed`, `failed`, …). En el **último** hand de `<francis-workflow>`, el valor exportado puede ser `completed` aunque el estado interno aún sea `running` durante el `record-save`. |
 
 **Alias legacy (misma semántica):** `<xml-root-attr>`, `<xml-root-system>` bajo `<record-create>`. El prefijo “xml” es histórico; **no** están limitados a `format="xml"`.
 
 **Solo XML (no se mezclan con JSON/CSV/NDJSON):** bajo `<record-create>`,
 
-- `<record-xml-root-attr name="..." required="false">valor</record-xml-root-attr>` — atributos en `<Records>` (independientes del contenido de cada fila).
-- `<record-xml-record-attr name="..." from-field="book.record_key" required="false"/>` — atributo en **cada** `<record>` con valor tomado del campo aplanado (misma notación que el schema). Sin `from-field`, el cuerpo del tag es un valor **estático** repetido en todas las filas. `required` por atributo: si se omite, equivale a `false`; si es `true` y el valor queda vacío al guardar, falla la sesión.
+- `<record-xml-root-attr name="..." required="false">valor</record-xml-root-attr>` — atributos en `<Records>` **solo** en XML (no entran en `_export` JSON). Equivalente “solo XML” frente a `record-export-root-attr` (multi-formato).
+- `<record-xml-record-attr name="..." from-field="book.record_key" required="false"/>` — atributo en **cada** `<record>` con valor tomado del campo aplanado (misma notación que el schema). Alias canónico: `<record-export-row-attr>` (misma semántica). Sin `from-field`, el cuerpo del tag es un valor **estático** repetido en todas las filas. `required` por atributo: si se omite, equivale a `false`; si es `true` y el valor queda vacío al guardar, falla la sesión.
 
 **Solo en `<record-save>` (serialización XML):** `<xml-record-attr>` — atributos estáticos extra en cada `<record>` (se fusionan al final; solo `format="xml"`).
 
 Los flags booleanos en `record-save` (`xml-include-root-session-id`, etc.) **suman** a lo declarado en el record; si ya fijaste una clave en `record-export-attr`, **no** la sobrescribe el integrado.
+
+**Compatibilidad por formato** (`_export` / metadata de export): los valores se **normalizan** para el destino (p. ej. saltos de línea en valores no se dejan crudos en CSV/comentarios/attrs XML). En **parquet**, si el JSON de export supera un umbral de tamaño, se **omite** el bloque `francis_export` en metadata **pero** las **columnas de datos** siguen igual. Los atributos **solo XML** (`record-xml-root-attr`, `record-xml-record-attr`) **no** se mezclan en JSON/CSV/NDJSON.
+
+**JSON y envoltorio `_export`:** si **no** declaraste nada que rellene el bloque de export “flat” (custom + system + root multi-formato), el JSON puede ser **solo** el array de filas (comportamiento antiguo). Si declaraste export pero **todas** las claves quedan omitidas (p. ej. `show-attribute="false"` en éxito), el archivo puede ser `{ "_export": {}, "data": [ ... ] }` para mantener el contrato.
+
+**Escritura atómica:** salidas de texto (json, ndjson, csv, html, txt, metadata) y XML usan archivo temporal en el mismo directorio y `replace`; excel y parquet escriben a `.tmp` y reemplazan.
 
 **Dónde se escribe cada formato**
 
@@ -48,7 +73,7 @@ Los flags booleanos en `record-save` (`xml-include-root-session-id`, etc.) **sum
 
 ## Ejemplo completo: `examples/books_all_pages.xml`
 
-El ejemplo **books to scrape** (paginación + HTTP) además guarda cada libro en un **`FRecord`** (`booksRecords`) y, **al terminar el scrape**, escribe **los mismos datos** en **ocho archivos** bajo `output/`:
+El ejemplo **books to scrape** (paginación + HTTP) además guarda cada libro en un **`FRecord`** (`booksRecords`). Opcionalmente puede declararse `<record-journal path="…"/>` para un NDJSON **incremental** durante el scrape. **Al terminar** el scrape, el mismo record se exporta con varios `<record-save>` — **ocho archivos** de salida final bajo `output/` (más el journal si está declarado):
 
 | Archivo | `format` |
 |---------|----------|
@@ -69,7 +94,7 @@ francis-suite run examples/books_all_pages.xml
 
 En el workflow: `<record-create name="booksRecords">` incluye los hijos `record-export-*` una vez; grupo `book` (`record_key`, `titulo`, `precio`); en el loop, `record_key` = `book-${contador}`; al final, ocho `<record-save>` mínimos (solo `format` y `path`) al mismo `from="booksRecords"`.
 
-El ejemplo añade **`record-xml-root-attr`** / **`record-xml-record-attr`** (solo afectan a `output/books.xml`): p. ej. `dataset` en la raíz e `id` por fila desde `book.record_key`. **`examples/all_books_pages.xml`** declara además `url` en cada `<record>` desde `book.url_libro` (`required` omitido → `false`).
+El ejemplo añade **`record-xml-root-attr`** / **`record-xml-record-attr`** (solo afectan a `output/books.xml`): p. ej. `dataset` en la raíz e `id` por fila desde `book.record_key`. **`examples/all_books_pages.xml`** declara además `url` en cada `<record>` desde `book.url_libro` (`required` omitido → `false`), **`record-journal`** hacia `output/all_books_pages.journal.ndjson` (vivo) y los **mismos** ocho `record-save` con prefijo `all_books_pages.*`.
 
 El listado plano **`output/todos_los_libros.txt`** sigue generándose como antes (misma corrida, otro consumo).
 

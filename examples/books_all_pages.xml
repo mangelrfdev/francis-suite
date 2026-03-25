@@ -20,6 +20,8 @@
         <record-export-system name="session_id"/>
         <record-export-system name="exported_at"/>
         <record-export-system name="francis_suite_version"/>
+        <!-- record-journal = NDJSON vivo (header + filas + cierre process); record-save = export final por formato -->
+        <record-journal path="output/books_all_pages.journal.ndjson" fsync="false"/>
         <record-xml-root-attr name="dataset">books_catalog</record-xml-root-attr>
         <record-xml-record-attr name="id" from-field="book.record_key" required="true"/>
         <record-set-group name="book" required="true">

@@ -13,8 +13,9 @@ Usage in XML:
                  path="output/propiedades.json"
                  include-metadata="true"/>
 
-Export key/value and system fields (session_id, etc.) are declared under <record-create>
-(<record-export-attr>, <record-export-system>); record-save only chooses format and path.
+Export key/value and system fields are declared under <record-create>
+(<record-export-attr>, <record-export-system>, <record-export-root-attr>, …);
+record-save only chooses format and path.
 Formats that cannot embed those extras omit them — no error.
 """
 
@@ -23,9 +24,61 @@ from datetime import datetime, timezone
 
 from francis_suite.core.registry import hand
 from francis_suite.core.variables import FVariable, FEmptyVariable
-from francis_suite.core.records import FRecord, FRANCIS_SUITE_VERSION
+from francis_suite.core.records import (
+    FRecord,
+    FRANCIS_SUITE_VERSION,
+    should_emit_export_show_attribute,
+)
 from francis_suite.core.expressions import FrancisExpression
 from francis_suite.hands.base import AbstractHand
+
+
+def _normalize_system_name(name: str) -> str:
+    return name.strip().lower().replace("-", "_")
+
+
+def _schema_has_flat_export_intent(schema) -> bool:
+    """True if record-create declared anything that can populate JSON/CSV _export (not XML-only row/root)."""
+    if schema.export_custom_specs or schema.export_system_specs:
+        return True
+    for r in schema.export_root_specs:
+        if not r.xml_only:
+            return True
+    return False
+
+
+def _apply_system_export(
+    raw_name: str,
+    record: FRecord,
+    session,
+    xa: dict[str, str],
+) -> None:
+    """Fill xa for known record-export-system names (canonical keys)."""
+    key = _normalize_system_name(raw_name)
+    if key in ("session_id",):
+        sid = getattr(session, "id", None) if session else None
+        xa["session_id"] = "" if sid is None else str(sid)
+    elif key in ("francis_suite_version", "francis_version"):
+        xa["francis_suite_version"] = FRANCIS_SUITE_VERSION
+    elif key in ("exported_at", "generated_at"):
+        xa["exported_at"] = datetime.now(timezone.utc).isoformat()
+    elif key in ("total_records",):
+        xa["total_records"] = str(record.count)
+    elif key in ("status_process",):
+        if session is None:
+            xa["status_process"] = ""
+        else:
+            st = getattr(session, "status", None)
+            val = getattr(st, "value", None) if st is not None else None
+            if val == "running" and getattr(session, "_export_final_hand", False):
+                xa["status_process"] = "completed"
+            else:
+                xa["status_process"] = "" if val is None else str(val)
+    else:
+        raise ValueError(
+            f"[RECORD] unknown record-export-system name '{raw_name}'. "
+            "Supported: session_id, francis_suite_version, exported_at, total_records, status_process"
+        )
 
 
 def _build_export_augmentation(
@@ -37,43 +90,101 @@ def _build_export_augmentation(
     """Merge export dict from record-create schema + optional xml-include-root-* flags on this save."""
     schema = record._schema
     xa: dict[str, str] = {}
-    for name_raw, val_raw in schema.export_custom_attrs:
-        k = engine.resolve(name_raw)
-        xa[k] = engine.resolve(val_raw or "")
 
-    want_sid = schema.export_want_session_id or flag_xml("xml-include-root-session-id", False)
-    want_ver = schema.export_want_francis_version or flag_xml("xml-include-root-francis-version", False)
-    want_at = schema.export_want_exported_at or flag_xml("xml-include-root-exported-at", False)
-
-    if want_sid and "session_id" not in xa:
-        sid = getattr(session, "id", None) if session else None
-        xa["session_id"] = "" if sid is None else str(sid)
-    if want_ver and "francis_suite_version" not in xa:
-        xa["francis_suite_version"] = FRANCIS_SUITE_VERSION
-    if want_at and "exported_at" not in xa:
-        xa["exported_at"] = datetime.now(timezone.utc).isoformat()
-
-    return xa
-
-
-def _resolve_xml_schema_for_save(
-    record: FRecord,
-    engine: FrancisExpression,
-) -> tuple[dict[str, str], list[dict]]:
-    """Resolve record-xml-root-attr and record-xml-record-attr for format xml."""
-    schema = record._schema
-    xml_root: dict[str, str] = {}
-    for spec in schema.xml_root_attr_specs:
+    for spec in schema.export_custom_specs:
+        if not should_emit_export_show_attribute(spec.show_attribute, session):
+            continue
         k = engine.resolve(spec.name_raw)
         v = engine.resolve(spec.value_raw or "")
         if spec.required and not str(v).strip():
             raise ValueError(
-                f"[RECORD] required XML root attribute '{k}' is empty at save time"
+                f"[RECORD] required record-export-attr '{k}' is empty at save time"
             )
-        xml_root[k] = v
+        xa[k] = v
 
+    for spec in schema.export_root_specs:
+        if spec.xml_only:
+            continue
+        if not should_emit_export_show_attribute(spec.show_attribute, session):
+            continue
+        k = engine.resolve(spec.name_raw)
+        v = engine.resolve(spec.value_raw or "")
+        if spec.required and not str(v).strip():
+            raise ValueError(
+                f"[RECORD] required record-export-root-attr '{k}' is empty at save time"
+            )
+        xa[k] = v
+
+    for spec in schema.export_system_specs:
+        if not should_emit_export_show_attribute(spec.show_attribute, session):
+            continue
+        _apply_system_export(spec.name_raw, record, session, xa)
+
+    # record-save xml-include-root-* only when record-create did not declare that system field
+    if flag_xml("xml-include-root-session-id", False) and "session_id" not in xa:
+        sid = getattr(session, "id", None) if session else None
+        xa["session_id"] = "" if sid is None else str(sid)
+    if flag_xml("xml-include-root-francis-version", False) and "francis_suite_version" not in xa:
+        xa["francis_suite_version"] = FRANCIS_SUITE_VERSION
+    if flag_xml("xml-include-root-exported-at", False) and "exported_at" not in xa:
+        xa["exported_at"] = datetime.now(timezone.utc).isoformat()
+
+    if not xa and not _schema_has_flat_export_intent(schema):
+        return None
+    return xa
+
+
+def _xml_inject_session_id(record: FRecord, session, flag: bool) -> bool:
+    """If schema declares session_id system attr, follow its show-attribute; else use record-save flag."""
+    for s in record._schema.export_system_specs:
+        if _normalize_system_name(s.name_raw) == "session_id":
+            return should_emit_export_show_attribute(s.show_attribute, session)
+    return flag
+
+
+def _xml_inject_francis_version(record: FRecord, session, flag: bool) -> bool:
+    for s in record._schema.export_system_specs:
+        if _normalize_system_name(s.name_raw) == "francis_suite_version":
+            return should_emit_export_show_attribute(s.show_attribute, session)
+    return flag
+
+
+def _xml_inject_exported_at(record: FRecord, session, flag: bool) -> bool:
+    for s in record._schema.export_system_specs:
+        if _normalize_system_name(s.name_raw) == "exported_at":
+            return should_emit_export_show_attribute(s.show_attribute, session)
+    return flag
+
+
+def _resolve_xml_only_root_attrs(
+    record: FRecord,
+    engine: FrancisExpression,
+    session,
+) -> dict[str, str]:
+    """XML-only root attrs (legacy record-xml-root-attr: xml_only=True)."""
+    out: dict[str, str] = {}
+    for spec in record._schema.export_root_specs:
+        if not spec.xml_only:
+            continue
+        if not should_emit_export_show_attribute(spec.show_attribute, session):
+            continue
+        k = engine.resolve(spec.name_raw)
+        v = engine.resolve(spec.value_raw or "")
+        if spec.required and not str(v).strip():
+            raise ValueError(
+                f"[RECORD] required record-xml-root-attr '{k}' is empty at save time"
+            )
+        out[k] = v
+    return out
+
+
+def _resolve_row_xml_attr_specs(
+    record: FRecord,
+    engine: FrancisExpression,
+) -> list[dict]:
+    schema = record._schema
     xml_record: list[dict] = []
-    for spec in schema.xml_record_attr_specs:
+    for spec in schema.export_row_specs:
         an = engine.resolve(spec.name_raw)
         if spec.from_field:
             xml_record.append(
@@ -82,6 +193,7 @@ def _resolve_xml_schema_for_save(
                     "from_field": spec.from_field,
                     "static": None,
                     "required": spec.required,
+                    "show_attribute": spec.show_attribute,
                 }
             )
         else:
@@ -96,9 +208,10 @@ def _resolve_xml_schema_for_save(
                     "from_field": None,
                     "static": sv,
                     "required": spec.required,
+                    "show_attribute": spec.show_attribute,
                 }
             )
-    return xml_root, xml_record
+    return xml_record
 
 
 @hand(tag="record-save")
@@ -191,14 +304,15 @@ class RecordSaveHand(AbstractHand):
 
         export_augmentation = _build_export_augmentation(record, engine, self.session, _flag_xml)
 
-        want_session = record._schema.export_want_session_id or _flag_xml("xml-include-root-session-id", False)
-        want_version = record._schema.export_want_francis_version or _flag_xml("xml-include-root-francis-version", False)
-        want_exported = record._schema.export_want_exported_at or _flag_xml("xml-include-root-exported-at", False)
+        want_session = _xml_inject_session_id(record, self.session, _flag_xml("xml-include-root-session-id", False))
+        want_version = _xml_inject_francis_version(record, self.session, _flag_xml("xml-include-root-francis-version", False))
+        want_exported = _xml_inject_exported_at(record, self.session, _flag_xml("xml-include-root-exported-at", False))
 
-        xml_only_root_attrs: dict[str, str] | None = None
+        xml_root_extra: dict[str, str] = {}
         xml_record_specs: list[dict] | None = None
         if fmt_l == "xml":
-            xml_only_root_attrs, xml_record_specs = _resolve_xml_schema_for_save(record, engine)
+            xml_root_extra = _resolve_xml_only_root_attrs(record, engine, self.session)
+            xml_record_specs = _resolve_row_xml_attr_specs(record, engine)
 
         record.save(
             fmt,
@@ -208,7 +322,7 @@ class RecordSaveHand(AbstractHand):
             sheet_name=sheet_name,
             metadata_sheet_name=metadata_sheet_name,
             html_title=html_title,
-            export_augmentation=export_augmentation or None,
+            export_augmentation=export_augmentation,
             xml_include_root_workflow=_flag_xml("xml-include-root-workflow", True),
             xml_include_root_total_records=_flag_xml("xml-include-root-total-records", True),
             xml_include_root_session_id=want_session,
@@ -216,9 +330,8 @@ class RecordSaveHand(AbstractHand):
             xml_include_root_exported_at=want_exported,
             xml_include_record_workflow=_flag_xml("xml-include-record-workflow", True),
             xml_include_record_key=_flag_xml("xml-include-record-key", True),
-            xml_root_extra_attrs={},
+            xml_root_extra_attrs=xml_root_extra,
             xml_record_extra_attrs=xml_record_extra,
-            xml_only_root_attrs=xml_only_root_attrs,
             xml_record_attr_specs_resolved=xml_record_specs,
         )
         return FEmptyVariable()

@@ -70,6 +70,9 @@ class FrancisSession:
         # After <httpx-close/>: block httpx-call / introspect until <set-proxy> finishes
         self._httpx_blocked_until_set_proxy: bool = False
 
+        # Set by FRuntime for the last direct child of <francis-workflow> (export / show-attribute semantics)
+        self._export_final_hand: bool = False
+
     # --- Identity ---
 
     @property

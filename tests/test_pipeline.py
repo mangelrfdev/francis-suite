@@ -3317,3 +3317,111 @@ def test_auto_private_record_metadata_without_hand(tmp_path, monkeypatch):
     data = json.loads(meta_path.read_text(encoding="utf-8"))
     assert data.get("session_id") == session.id
     assert data.get("status") == "completed"
+
+
+def test_record_journal_one_line_per_add(tmp_path):
+    """record-journal appends one NDJSON line per successful record-add."""
+    journal = tmp_path / "rows.ndjson"
+    out = tmp_path / "out.json"
+
+    xml = f"""
+    <francis-workflow>
+        <record-create name="r">
+            <record-journal path="{journal.as_posix()}"/>
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="r">
+            <record-add-group name="item">
+                <record-add-field name="nombre">A</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-add to="r">
+            <record-add-group name="item">
+                <record-add-field name="nombre">B</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-save from="r" format="json" path="{out.as_posix()}"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-record-journal")
+
+    assert session.status == SessionStatus.COMPLETED
+    lines = journal.read_text(encoding="utf-8").strip().split("\n")
+    assert len(lines) == 4
+    assert json.loads(lines[0])["_type"] == "journal_header"
+    assert json.loads(lines[1])["_type"] == "record"
+    assert json.loads(lines[1])["data"]["item.nombre"] == "A"
+    assert json.loads(lines[2])["data"]["item.nombre"] == "B"
+    assert json.loads(lines[3])["_type"] == "process"
+    assert json.loads(lines[3])["status"] == "completed"
+
+
+def test_record_journal_process_line_on_failed_session(tmp_path):
+    """After a failed workflow, journal ends with _type process and status failed."""
+    journal = tmp_path / "j.ndjson"
+
+    xml = f"""
+    <francis-workflow>
+        <record-create name="r">
+            <record-journal path="{journal.as_posix()}"/>
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="r">
+            <record-add-group name="item">
+                <record-add-field name="nombre">only-row</record-add-field>
+            </record-add-group>
+        </record-add>
+        <tag-que-no-existe/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-journal-fail")
+
+    assert session.status == SessionStatus.FAILED
+    lines = journal.read_text(encoding="utf-8").strip().split("\n")
+    assert len(lines) >= 3
+    assert json.loads(lines[-1])["_type"] == "process"
+    assert json.loads(lines[-1])["status"] == "failed"
+    assert json.loads(lines[-1])["rows_committed"] == 1
+
+
+def test_record_export_system_status_hide_when_completed(tmp_path):
+    """show-attribute=false on status_process omits key when session completed."""
+    out = tmp_path / "out.json"
+
+    xml = f"""
+    <francis-workflow>
+        <record-create name="r">
+            <record-export-system name="status_process" show-attribute="false"/>
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="r">
+            <record-add-group name="item">
+                <record-add-field name="nombre">X</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-save from="r" format="json" path="{out.as_posix()}"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-status-hide")
+
+    assert session.status == SessionStatus.COMPLETED
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert "status_process" not in data["_export"]

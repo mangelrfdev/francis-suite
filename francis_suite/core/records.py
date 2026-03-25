@@ -23,8 +23,10 @@ Metadata system:
 from __future__ import annotations
 import hashlib
 import html as html_module
+import io
 import json
 import csv
+import os
 import uuid
 import re
 import sys
@@ -40,22 +42,99 @@ from francis_suite.core.base import FVariable
 
 
 @dataclass
-class XmlRootAttrSpec:
-    """XML-only attribute on <Records> — declared in record-create (not cross-format export)."""
+class ExportCustomAttrSpec:
+    """Cross-format export key/value from <record-export-attr>."""
 
     name_raw: str
     value_raw: str
     required: bool = False
+    show_attribute: bool = True
 
 
 @dataclass
-class XmlRecordAttrSpec:
-    """XML-only attribute on each <record> — static or from a flattened row field."""
+class ExportRootAttrSpec:
+    """Root-level export (e.g. <Records> attrs in XML, merged into _export elsewhere)."""
+
+    name_raw: str
+    value_raw: str
+    required: bool = False
+    show_attribute: bool = True
+    # Legacy record-xml-root-attr: only <Records> in XML, not JSON _export
+    xml_only: bool = False
+
+
+@dataclass
+class ExportRowAttrSpec:
+    """Per-row attribute (e.g. on <record> in XML) — from field or static."""
 
     name_raw: str
     value_raw: str
     from_field: str | None
     required: bool = False
+    show_attribute: bool = True
+
+
+@dataclass
+class ExportSystemAttrSpec:
+    """Built-in values at save time: session_id, total_records, status_process, etc."""
+
+    name_raw: str
+    show_attribute: bool = True
+
+
+# Legacy aliases (tests / older XML)
+XmlRootAttrSpec = ExportRootAttrSpec
+XmlRecordAttrSpec = ExportRowAttrSpec
+
+
+def write_text_atomic(path: Path, text: str, *, encoding: str = "utf-8") -> None:
+    """Write text via a temp file in the same directory, then replace (best-effort atomic)."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text, encoding=encoding)
+    tmp.replace(path)
+
+
+def write_bytes_atomic(path: Path, data: bytes) -> None:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_bytes(data)
+    tmp.replace(path)
+
+
+def _session_completed_for_export(session: Any) -> bool:
+    """
+    True when export should treat the workflow as successfully finished for show-attribute rules.
+
+    During the last top-level hand, status is still RUNNING but the run will complete right after;
+    that case is treated as completed so hidden export fields stay hidden on success.
+    """
+    if session is None:
+        return False
+    try:
+        st = getattr(session, "status", None)
+        val = getattr(st, "value", None) if st is not None else None
+    except Exception:
+        return False
+    if val == "completed":
+        return True
+    if val == "running" and getattr(session, "_export_final_hand", False):
+        return True
+    return False
+
+
+def should_emit_export_show_attribute(show_attribute: bool, session: Any) -> bool:
+    """
+    show-attribute=false: omit when the export is considered successful/completed; otherwise emit.
+    show-attribute=true: always emit.
+    """
+    if show_attribute:
+        return True
+    if session is None:
+        return True
+    return not _session_completed_for_export(session)
 
 
 # ---------------------------------------------------------------------------
@@ -368,16 +447,15 @@ class FRecordSchema:
         # Stored as "group.field" keys in declaration order
         self.record_key_keys: list[str] = []
 
-        # export augmentation — from <record-export-*> / legacy <xml-root-*> under <record-create>
-        # Resolved at record-save time (supports ${} in name/body)
-        self.export_custom_attrs: list[tuple[str, str]] = []
-        self.export_want_session_id: bool = False
-        self.export_want_francis_version: bool = False
-        self.export_want_exported_at: bool = False
+        # Export augmentation — from <record-create>; resolved at record-save
+        self.export_custom_specs: list[ExportCustomAttrSpec] = []
+        self.export_root_specs: list[ExportRootAttrSpec] = []
+        self.export_row_specs: list[ExportRowAttrSpec] = []
+        self.export_system_specs: list[ExportSystemAttrSpec] = []
 
-        # XML-only (format xml) — independent attrs on <Records> / <record> vs row data inside
-        self.xml_root_attr_specs: list[XmlRootAttrSpec] = []
-        self.xml_record_attr_specs: list[XmlRecordAttrSpec] = []
+        # Optional NDJSON journal — one appended line per successful add_row (crash-safe incremental)
+        self.journal_path: str | None = None
+        self.journal_fsync: bool = False
 
     def add_group(self, group: FRecordGroup) -> None:
         self.groups[group.name] = group
@@ -493,6 +571,7 @@ class FRecord(FVariable):
         self._rows_failed:  int = 0
         self._private_meta: dict = {}
         self._seen_record_key_hashes: set[str] = set()
+        self._journal_finalized: bool = False
 
         # RAM tracking with psutil if available
         self._ram_samples:  list[float] = []
@@ -524,10 +603,11 @@ class FRecord(FVariable):
     def last_row(self) -> dict | None:
         return self._rows[-1] if self._rows else None
 
-    def add_row(self, raw_row: dict) -> dict | None:
+    def add_row(self, raw_row: dict, session: Any = None) -> dict | None:
         """
         Normalize and add a row to the collection.
         Returns None if <record-key> is configured and this row duplicates an existing key.
+        session: optional — used for journal lines (session id, status, workflow name).
         """
         normalized = self._schema.normalize_row(raw_row)
         if self._schema.record_key_keys:
@@ -539,7 +619,127 @@ class FRecord(FVariable):
             self._seen_record_key_hashes.add(key_hash)
         self._rows.append(normalized)
         self._sample_ram()
+        self._append_journal_line(normalized, session=session)
         return normalized
+
+    def write_journal_header_if_needed(self, session: Any) -> None:
+        """
+        Write a single journal_header line when the journal file is new/empty.
+        Call once from record-create after the FRecord is registered.
+        """
+        raw_path = self._schema.journal_path
+        if not raw_path:
+            return
+        path = Path(raw_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.exists() and path.stat().st_size > 0:
+            return
+        header = {
+            "_type": "journal_header",
+            "francis_suite_version": FRANCIS_SUITE_VERSION,
+            "record_name": self.name,
+            "session_id": getattr(session, "id", None) if session else None,
+            "workflow_name": getattr(session, "workflow_name", None) if session else None,
+            "status": "running",
+            "started_at": datetime.now(timezone.utc).isoformat(),
+        }
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(json.dumps(header, ensure_ascii=False, default=str) + "\n")
+            if self._schema.journal_fsync:
+                f.flush()
+                os.fsync(f.fileno())
+
+    def finalize_journal(self, session: Any) -> None:
+        """
+        Append a process summary line when the workflow ends (success or failure).
+        Safe to call multiple times — only runs if journal_path is set.
+        """
+        if self._journal_finalized:
+            return
+        raw_path = self._schema.journal_path
+        if not raw_path:
+            return
+        path = Path(raw_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        status_val = "unknown"
+        err_msg: str | None = None
+        if session is not None:
+            try:
+                st = session.status
+                status_val = getattr(st, "value", None) or str(st)
+            except Exception:
+                status_val = "unknown"
+            try:
+                if session.error:
+                    err_msg = str(session.error)
+            except Exception:
+                pass
+        summary = {
+            "_type": "process",
+            "status": status_val,
+            "session_id": getattr(session, "id", None) if session else None,
+            "workflow_name": getattr(session, "workflow_name", None) if session else None,
+            "record_name": self.name,
+            "rows_committed": len(self._rows),
+            "francis_suite_version": FRANCIS_SUITE_VERSION,
+            "error": err_msg,
+            "finished_at": datetime.now(timezone.utc).isoformat(),
+        }
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(summary, ensure_ascii=False, default=str) + "\n")
+            if self._schema.journal_fsync:
+                f.flush()
+                os.fsync(f.fileno())
+        self._journal_finalized = True
+
+    def _append_journal_line(self, normalized: dict, session: Any = None) -> None:
+        """Append one NDJSON line if journal_path was set on record-create."""
+        raw_path = self._schema.journal_path
+        if not raw_path:
+            return
+        path = Path(raw_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        flat = self._flatten(normalized)
+        payload: dict[str, Any] = {
+            "_type": "record",
+            "row_index": len(self._rows),
+            "francis_suite_version": FRANCIS_SUITE_VERSION,
+            "data": flat,
+        }
+        if session is not None:
+            payload["session_id"] = getattr(session, "id", None)
+            try:
+                st = session.status
+                payload["status"] = getattr(st, "value", None)
+            except Exception:
+                payload["status"] = None
+            payload["workflow_name"] = getattr(session, "workflow_name", None)
+        line = json.dumps(payload, ensure_ascii=False, default=str) + "\n"
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(line)
+            if self._schema.journal_fsync:
+                f.flush()
+                os.fsync(f.fileno())
+
+    def _sanitize_export_for_format(self, fmt: str, xa: dict[str, str]) -> dict[str, str]:
+        """
+        Drop or fix export augmentation keys so each format only gets compatible values.
+        Row payload is unchanged — this only affects _export / root augmentation dicts.
+        """
+        if not xa:
+            return xa
+        out: dict[str, str] = {}
+        for k, v in xa.items():
+            sv = "" if v is None else str(v)
+            # No raw newlines in CSV/TSV/HTML comments, XML attributes, parquet metadata JSON, etc.
+            if fmt in ("csv", "txt", "html", "excel", "xml", "json", "ndjson", "parquet"):
+                sv = sv.replace("\r\n", " ").replace("\n", " ").replace("\r", " ").strip()
+            out[k] = sv
+        if fmt == "parquet":
+            blob = json.dumps(out, ensure_ascii=False, default=str)
+            if len(blob.encode("utf-8")) > 65536:
+                return {}
+        return out
 
     def _make_record_key_hash(self, normalized: dict) -> str:
         """Stable SHA-256 hash of key field values in schema order."""
@@ -765,7 +965,6 @@ class FRecord(FVariable):
         xml_include_record_key: bool = True,
         xml_root_extra_attrs: dict[str, str] | None = None,
         xml_record_extra_attrs: dict[str, str] | None = None,
-        xml_only_root_attrs: dict[str, str] | None = None,
         xml_record_attr_specs_resolved: list[dict] | None = None,
     ) -> None:
         """
@@ -780,8 +979,7 @@ class FRecord(FVariable):
             metadata_sheet_name:    excel — second sheet for public metadata (if include_metadata)
             html_title:             html — <title> and main heading (default: workflow name)
             export_augmentation:    optional key/value (from record-create or caller) — applied per format
-            xml_only_root_attrs:    XML-only <Records> attrs from record-xml-root-attr (not JSON/CSV)
-            xml_record_attr_specs_resolved: per-row <record> attr specs (from record-xml-record-attr), pre-resolved
+            xml_record_attr_specs_resolved: per-row <record> attr specs, pre-resolved
             xml_*:                  only for format xml — see _save_xml
         """
         output_path = Path(path)
@@ -798,12 +996,15 @@ class FRecord(FVariable):
             if xml_include_root_exported_at and "exported_at" not in xa:
                 xa["exported_at"] = datetime.now(timezone.utc).isoformat()
 
+        xa = self._sanitize_export_for_format(fmt, xa)
+
         if fmt == "json":
             self._save_json(
                 output_path,
                 include_metadata=include_metadata,
                 session=session,
-                export_augmentation=xa,
+                export_augmentation_payload=xa,
+                include_export_wrapper=export_augmentation is not None,
             )
         elif fmt == "csv":
             self._save_csv(
@@ -816,7 +1017,8 @@ class FRecord(FVariable):
                 output_path,
                 include_metadata=include_metadata,
                 session=session,
-                export_augmentation=xa,
+                export_augmentation_payload=xa,
+                include_export_wrapper=export_augmentation is not None,
             )
         elif fmt == "xml":
             self._save_xml(
@@ -830,7 +1032,6 @@ class FRecord(FVariable):
                 root_extra_attrs=xml_root_extra_attrs or {},
                 record_extra_attrs=xml_record_extra_attrs or {},
                 export_augmentation=xa,
-                xml_only_root_attrs=xml_only_root_attrs or {},
                 xml_record_attr_specs_resolved=xml_record_attr_specs_resolved or [],
             )
         elif fmt == "html":
@@ -876,8 +1077,8 @@ class FRecord(FVariable):
 
         meta = self.build_private_metadata(session)
 
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(meta, f, ensure_ascii=False, indent=2, default=str)
+        text = json.dumps(meta, ensure_ascii=False, indent=2, default=str)
+        write_text_atomic(output_path, text)
 
         print(f"[RECORD] saved metadata to '{output_path}'")
 
@@ -886,44 +1087,52 @@ class FRecord(FVariable):
         path: Path,
         include_metadata: bool = False,
         session=None,
-        export_augmentation: dict[str, str] | None = None,
+        *,
+        export_augmentation_payload: dict[str, str] | None = None,
+        include_export_wrapper: bool = False,
     ) -> None:
-        xa = export_augmentation or {}
+        xa = dict(export_augmentation_payload or {})
         if include_metadata:
             public_meta = self.build_public_metadata(session)
             output: dict | list = {
                 "_metadata": public_meta or {},
                 "data": self._rows,
             }
-            if xa:
+            if include_export_wrapper:
                 output["_export"] = xa
-        elif xa:
+            elif xa:
+                output["_export"] = xa
+        elif include_export_wrapper:
             output = {"_export": xa, "data": self._rows}
         else:
             output = self._rows
 
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(output, f, ensure_ascii=False, indent=2, default=str)
+        text = json.dumps(output, ensure_ascii=False, indent=2, default=str)
+        write_text_atomic(path, text)
 
     def _save_ndjson(
         self,
         path: Path,
         include_metadata: bool = False,
         session=None,
-        export_augmentation: dict[str, str] | None = None,
+        *,
+        export_augmentation_payload: dict[str, str] | None = None,
+        include_export_wrapper: bool = False,
     ) -> None:
-        xa = export_augmentation or {}
-        with open(path, "w", encoding="utf-8") as f:
-            if xa:
-                f.write(
-                    json.dumps({"_type": "export", **xa}, ensure_ascii=False, default=str) + "\n"
-                )
-            if include_metadata:
-                public_meta = self.build_public_metadata(session)
-                if public_meta:
-                    f.write(json.dumps({"_type": "metadata", **public_meta}, ensure_ascii=False, default=str) + "\n")
-            for row in self._rows:
-                f.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
+        xa = dict(export_augmentation_payload or {})
+        lines: list[str] = []
+        if include_export_wrapper:
+            lines.append(json.dumps({"_type": "export", **xa}, ensure_ascii=False, default=str))
+        elif xa:
+            lines.append(json.dumps({"_type": "export", **xa}, ensure_ascii=False, default=str))
+        if include_metadata:
+            public_meta = self.build_public_metadata(session)
+            if public_meta:
+                lines.append(json.dumps({"_type": "metadata", **public_meta}, ensure_ascii=False, default=str))
+        for row in self._rows:
+            lines.append(json.dumps(row, ensure_ascii=False, default=str))
+        if lines:
+            write_text_atomic(path, "\n".join(lines) + "\n")
 
     def _save_csv(
         self,
@@ -943,17 +1152,18 @@ class FRecord(FVariable):
                     keys.append(key)
 
         xa = export_augmentation or {}
-        with open(path, "w", encoding="utf-8", newline="") as f:
-            if include_metadata and self._schema.has_public_metadata:
-                for field in self._schema.public_metadata_fields:
-                    value = field["value"] or ""
-                    f.write(f"# {field['name']}: {value}\n")
-            for ek, ev in xa.items():
-                f.write(f"# {ek}: {ev}\n")
+        buf = io.StringIO()
+        if include_metadata and self._schema.has_public_metadata:
+            for field in self._schema.public_metadata_fields:
+                value = field["value"] or ""
+                buf.write(f"# {field['name']}: {value}\n")
+        for ek, ev in xa.items():
+            buf.write(f"# {ek}: {ev}\n")
 
-            writer = csv.DictWriter(f, fieldnames=keys, extrasaction="ignore")
-            writer.writeheader()
-            writer.writerows(flat_rows)
+        writer = csv.DictWriter(buf, fieldnames=keys, extrasaction="ignore")
+        writer.writeheader()
+        writer.writerows(flat_rows)
+        write_text_atomic(path, buf.getvalue())
 
     def _workflow_name(self, session) -> str:
         if session is None:
@@ -973,12 +1183,10 @@ class FRecord(FVariable):
         root_extra_attrs: dict[str, str] | None = None,
         record_extra_attrs: dict[str, str] | None = None,
         export_augmentation: dict[str, str] | None = None,
-        xml_only_root_attrs: dict[str, str] | None = None,
         xml_record_attr_specs_resolved: list[dict] | None = None,
     ) -> None:
         wf = self._workflow_name(session)
         root_attrs: dict[str, str] = dict(export_augmentation or {})
-        root_attrs.update(dict(xml_only_root_attrs or {}))
         root_attrs.update(dict(root_extra_attrs or {}))
         if include_root_workflow:
             root_attrs["workflow"] = wf
@@ -1004,6 +1212,10 @@ class FRecord(FVariable):
                 attrs["recordKey"] = self._make_record_key_hash(row)
             for spec in specs:
                 aname = spec["name"]
+                if not should_emit_export_show_attribute(
+                    spec.get("show_attribute", True), session
+                ):
+                    continue
                 if spec.get("from_field"):
                     raw = flat.get(spec["from_field"], "")
                     val = "" if raw is None else str(raw)
@@ -1020,12 +1232,14 @@ class FRecord(FVariable):
                 _append_xml_from_value(rec_el, gk, gv)
 
         tree = etree.ElementTree(root)
+        tmp = path.with_name(path.name + ".tmp")
         tree.write(
-            str(path),
+            str(tmp),
             encoding="utf-8",
             xml_declaration=True,
             pretty_print=True,
         )
+        tmp.replace(path)
 
     def _save_html(
         self,
@@ -1100,7 +1314,7 @@ class FRecord(FVariable):
             parts.append("</tr>")
         parts.append("</tbody></table></body></html>")
 
-        path.write_text("\n".join(parts), encoding="utf-8")
+        write_text_atomic(path, "\n".join(parts))
 
     def _save_txt(
         self,
@@ -1132,7 +1346,7 @@ class FRecord(FVariable):
         for row in flat_rows:
             lines.append("\t".join(str(row.get(k, "")) for k in keys))
 
-        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        write_text_atomic(path, "\n".join(lines) + "\n")
 
     def _save_excel(
         self,
@@ -1179,7 +1393,9 @@ class FRecord(FVariable):
             for k, v in xa.items():
                 ex.append([k, "" if v is None else str(v)])
 
-        wb.save(path)
+        tmp = path.with_name(path.name + ".tmp")
+        wb.save(tmp)
+        tmp.replace(path)
 
     def _save_parquet(self, path: Path, export_augmentation: dict[str, str] | None = None) -> None:
         if not self._rows:
@@ -1196,7 +1412,9 @@ class FRecord(FVariable):
             existing = table.schema.metadata or {}
             merged = {**existing, b"francis_export": meta_json.encode("utf-8")}
             table = table.replace_schema_metadata(merged)
-        pq.write_table(table, path, compression="snappy")
+        tmp = path.with_name(path.name + ".tmp")
+        pq.write_table(table, tmp, compression="snappy")
+        tmp.replace(path)
 
     def _flatten(self, obj: dict, prefix: str = "") -> dict:
         result = {}

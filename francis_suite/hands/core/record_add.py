@@ -80,6 +80,6 @@ class RecordAddHand(AbstractHand):
                 raw_row[f"{group_name}.{field_name}"] = raw_value
 
         # normalize and add the row
-        record.add_row(raw_row)
+        record.add_row(raw_row, session=self.session)
 
         return FEmptyVariable()

@@ -23,8 +23,8 @@ francis-suite run examples/books_scraper.xml
 | File | What it shows |
 |------|----------------|
 | `examples/books_scraper.xml` | Single page, loop + `<log>` (minimal; see comments for full record pipeline) |
-| `examples/books_all_pages.xml` | Paginated scrape + `record-create` (`record-export-*`, `record-xml-*` for XML shape) + **eight** `<record-save>` → `output/books.*` |
-| `examples/all_books_pages.xml` | Like above + `record-key`, metadata, `record-xml-record-attr` `id` / `url` → `output/all_books_pages.*` |
+| `examples/books_all_pages.xml` | Paginated scrape + `record-create` (`record-export-*`, optional `record-journal`, `record-xml-*` for XML) + **eight** `<record-save>` → `output/books.*` |
+| `examples/all_books_pages.xml` | Like above + `record-key`, metadata, `record-journal` (NDJSON vivo), `record-xml-record-attr` `id` / `url` → `output/all_books_pages.*` |
 | `examples/test_boolean.xml`, `examples/test_sensitive.xml` | Tiny workflows for conditions / sensitive masking |
 
 Full **record-save** reference (formats, attributes, samples): [docs/guides/record-save.md](docs/guides/record-save.md).

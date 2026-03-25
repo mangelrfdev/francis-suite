@@ -48,8 +48,10 @@ from francis_suite.core.records import (
     FRecordSchema,
     FRecordGroup,
     FRecordField,
-    XmlRecordAttrSpec,
-    XmlRootAttrSpec,
+    ExportCustomAttrSpec,
+    ExportRootAttrSpec,
+    ExportRowAttrSpec,
+    ExportSystemAttrSpec,
 )
 from francis_suite.core.expressions import FrancisExpression
 from francis_suite.hands.base import AbstractHand
@@ -79,16 +81,19 @@ class RecordCreateHand(AbstractHand):
             <key-field name="fieldName"/>  — bare name if unique across groups
             <key-field name="group.field"/> — qualified if ambiguous
 
-        <record-export-attr name="...">value</record-export-attr> — optional; key/value for every record-save (body supports ${})
-        <record-export-system name="session_id"/> — include session id at save time (same idea as xml-include-root-session-id)
-        <record-export-system name="francis_suite_version"/> — framework version string
-        <record-export-system name="exported_at"/> — UTC ISO timestamp at save time
-        Legacy aliases: <xml-root-attr>, <xml-root-system> (same semantics; name is historical)
+        <record-export-attr name="..." required="false" show-attribute="true">value</record-export-attr>
+        <record-export-root-attr name="..." required="false" show-attribute="true">value</record-export-root-attr>
+            — merged into _export (json, etc.) and <Records> in XML
+        <record-export-system name="session_id|francis_suite_version|exported_at|total_records|status_process"
+                              show-attribute="true"/>
+        <record-journal path="..." fsync="false"/> — append one NDJSON line per successful record-add
 
-        XML-only (format xml — not mixed into json/csv export):
-        <record-xml-root-attr name="..." required="false">value</record-xml-root-attr> — attributes on <Records>
-        <record-xml-record-attr name="..." from-field="group.field" required="false"/> — per-row on <record>
-        <record-xml-record-attr name="...">static</record-xml-record-attr> — same value on every <record>
+        Legacy aliases: <xml-root-attr> (same as record-export-attr), <xml-root-system> (export-system)
+
+        XML-focused (legacy):
+        <record-xml-root-attr name="...">value</record-xml-root-attr> — only <Records> attrs in XML, not JSON _export
+        <record-xml-record-attr name="..." from-field="group.field"/> — per-row on <record>
+        <record-export-row-attr> — alias for record-xml-record-attr semantics
         required defaults to false when omitted.
 
     Notes:
@@ -169,54 +174,103 @@ class RecordCreateHand(AbstractHand):
                     continue
                 schema.add_record_key_field(key_node.require_attr("name"))
 
-        def _mark_export_system(name_raw: str) -> None:
-            key = engine.resolve(name_raw).strip().lower()
-            if key in ("session_id", "session-id"):
-                schema.export_want_session_id = True
-            elif key in ("francis_suite_version", "francis-version", "francis_version"):
-                schema.export_want_francis_version = True
-            elif key in ("exported_at", "exported-at", "generated_at"):
-                schema.export_want_exported_at = True
+        def _truthy_attr(node, name: str, default: str = "false") -> bool:
+            v = (node.get_attr(name, default) or "").strip().lower()
+            return v in ("true", "1", "yes")
+
+        def _show_attribute(node) -> bool:
+            v = (node.get_attr("show-attribute", "true") or "true").strip().lower()
+            return v not in ("false", "0", "no")
+
+        for child in by_tag.get("record-journal", []):
+            schema.journal_path = engine.resolve(child.require_attr("path"))
+            schema.journal_fsync = _truthy_attr(child, "fsync")
+            break
 
         for child in by_tag["record-export-attr"]:
-            schema.export_custom_attrs.append((child.require_attr("name"), child.text or ""))
-        for child in by_tag["xml-root-attr"]:
-            schema.export_custom_attrs.append((child.require_attr("name"), child.text or ""))
-        for child in by_tag["record-export-system"]:
-            _mark_export_system(child.require_attr("name"))
-        for child in by_tag["xml-root-system"]:
-            _mark_export_system(child.require_attr("name"))
-
-        for child in by_tag["record-xml-root-attr"]:
-            req = child.get_attr("required", "false").lower() in ("true", "1", "yes")
-            schema.xml_root_attr_specs.append(
-                XmlRootAttrSpec(
+            schema.export_custom_specs.append(
+                ExportCustomAttrSpec(
                     name_raw=child.require_attr("name"),
                     value_raw=child.text or "",
-                    required=req,
+                    required=_truthy_attr(child, "required"),
+                    show_attribute=_show_attribute(child),
+                )
+            )
+        for child in by_tag["xml-root-attr"]:
+            schema.export_custom_specs.append(
+                ExportCustomAttrSpec(
+                    name_raw=child.require_attr("name"),
+                    value_raw=child.text or "",
+                    required=_truthy_attr(child, "required"),
+                    show_attribute=_show_attribute(child),
                 )
             )
 
-        for child in by_tag["record-xml-record-attr"]:
-            req = child.get_attr("required", "false").lower() in ("true", "1", "yes")
+        for child in by_tag.get("record-export-root-attr", []):
+            schema.export_root_specs.append(
+                ExportRootAttrSpec(
+                    name_raw=child.require_attr("name"),
+                    value_raw=child.text or "",
+                    required=_truthy_attr(child, "required"),
+                    show_attribute=_show_attribute(child),
+                    xml_only=False,
+                )
+            )
+
+        for child in by_tag["record-xml-root-attr"]:
+            schema.export_root_specs.append(
+                ExportRootAttrSpec(
+                    name_raw=child.require_attr("name"),
+                    value_raw=child.text or "",
+                    required=_truthy_attr(child, "required"),
+                    show_attribute=_show_attribute(child),
+                    xml_only=True,
+                )
+            )
+
+        def _append_row_attr(child) -> None:
+            req = _truthy_attr(child, "required")
             ff_raw = child.get_attr("from-field", "").strip() or None
             canonical_ff = schema.resolve_flat_field_path(ff_raw) if ff_raw else None
             body = child.text or ""
             if req and not canonical_ff and not body.strip():
                 raise ValueError(
-                    "[RECORD] record-xml-record-attr: use from-field or a non-empty body when required=true"
+                    "[RECORD] record row attr: use from-field or a non-empty body when required=true"
                 )
-            schema.xml_record_attr_specs.append(
-                XmlRecordAttrSpec(
+            schema.export_row_specs.append(
+                ExportRowAttrSpec(
                     name_raw=child.require_attr("name"),
                     value_raw=body,
                     from_field=canonical_ff,
                     required=req,
+                    show_attribute=_show_attribute(child),
+                )
+            )
+
+        for child in by_tag.get("record-export-row-attr", []):
+            _append_row_attr(child)
+        for child in by_tag["record-xml-record-attr"]:
+            _append_row_attr(child)
+
+        for child in by_tag["record-export-system"]:
+            schema.export_system_specs.append(
+                ExportSystemAttrSpec(
+                    name_raw=child.require_attr("name"),
+                    show_attribute=_show_attribute(child),
+                )
+            )
+        for child in by_tag["xml-root-system"]:
+            schema.export_system_specs.append(
+                ExportSystemAttrSpec(
+                    name_raw=child.require_attr("name"),
+                    show_attribute=_show_attribute(child),
                 )
             )
 
         record = FRecord(schema=schema)
         self.context.set_shared_box(name, record)
+        if schema.journal_path:
+            record.write_journal_header_if_needed(self.session)
 
         meta_info = " with public metadata" if schema.has_public_metadata else ""
         key_info = f", record-key={len(schema.record_key_keys)} field(s)" if schema.record_key_keys else ""

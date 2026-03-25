@@ -147,6 +147,7 @@ class FRuntime:
                 error=str(e),
             ))
         finally:
+            self._finalize_record_journals(session)
             session.liveness.stop_watch_thread()
             session.close_http_resources()
 
@@ -211,9 +212,27 @@ class FRuntime:
         Returns the result of the last child.
         """
         result: FVariable = FEmptyVariable()
-        for child in node.children:
+        children = list(node.children)
+        n = len(children)
+        for i, child in enumerate(children):
+            if node.tag == "francis-workflow":
+                session._export_final_hand = i == n - 1
+            else:
+                session._export_final_hand = False
             result = self.execute_node(child, session)
         return result
+
+    def _finalize_record_journals(self, session: FrancisSession) -> None:
+        """Append journal process lines for each FRecord that uses record-journal."""
+        from francis_suite.core.records import FRecord
+
+        for _name, var in session.context.iter_shared_box_items():
+            if not isinstance(var, FRecord):
+                continue
+            try:
+                var.finalize_journal(session)
+            except Exception as e:
+                print(f"[RECORD] journal finalize failed: {e}")
 
     def _persist_private_record_metadata(self, session: FrancisSession) -> None:
         """

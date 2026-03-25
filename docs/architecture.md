@@ -375,7 +375,7 @@ Si el key ya existe al hacer `record-add` → no se agrega la fila y se loguea `
 Ver `docs/roadmap.md` para XML de ejemplo.
 
 ### record-save — formatos base (implementados)
-`json`, `csv`, `ndjson`, `xml`, `html`, `txt` (TSV), `excel`/`xlsx`, `parquet`. En **record-create**: `record-export-*` (metadatos multi-formato) y `record-xml-root-attr` / `record-xml-record-attr` (solo serialización XML, attrs en `<Records>` / `<record>` independientes de los campos de datos). Referencia y ejemplos `books_all_pages.xml`, `all_books_pages.xml`: [guides/record-save.md](guides/record-save.md).
+`json`, `csv`, `ndjson`, `xml`, `html`, `txt` (TSV), `excel`/`xlsx`, `parquet`. En **record-create**: `record-export-*` (incl. `required` / `show-attribute`), `record-export-root-attr`, `record-export-system` (también `total_records`, `status_process`), `record-journal` (NDJSON incremental con líneas `journal_header` / `record` / `process` al cerrar sesión), y `record-xml-root-attr` / `record-xml-record-attr` (o `record-export-row-attr`) para attrs solo XML. Referencia y ejemplos `books_all_pages.xml`, `all_books_pages.xml`: [guides/record-save.md](guides/record-save.md).
 
 ### record-save — evolutivo
 Ideas no cubiertas aún en código: `metadata-placement` unificado, txt con plantilla libre, etc.

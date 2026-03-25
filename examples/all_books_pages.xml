@@ -35,6 +35,11 @@
         <record-export-system name="session_id"/>
         <record-export-system name="exported_at"/>
         <record-export-system name="francis_suite_version"/>
+        <!--
+            record-journal: NDJSON incremental (header + each row + final process line). Survives crashes; read _type record + process.
+            record-save below: one file per format (json, csv, ndjson, …) — full export rules, omitting attrs that do not fit each format.
+        -->
+        <record-journal path="output/all_books_pages.journal.ndjson" fsync="false"/>
         <record-xml-root-attr name="dataset">books_catalog_all_pages</record-xml-root-attr>
         <record-xml-record-attr name="id" from-field="book.record_key" required="true"/>
         <record-xml-record-attr name="url" from-field="book.url_libro" required="false"/>
@@ -126,7 +131,7 @@
         <sleep ms="1000"/>
     </while>
 
-    <log>Listo — ver output/all_books_pages_log.txt (log línea a línea) y output/all_books_pages.* (exports)</log>
+    <log>Listo — journal en all_books_pages.journal.ndjson (vivo); exports finales en all_books_pages.* según cada record-save</log>
 
     <!-- include-metadata: true where public metadata (scraper_name, case_key) is wanted; false = data-focused files -->
     <record-save from="booksRecords" format="json" path="output/all_books_pages.json" include-metadata="true"/>

@@ -11,6 +11,7 @@ Low-code, declarativo, extensible, cloud-ready.
 - [x] Formatos adicionales de record-save — xml, html, txt (TSV), excel/xlsx, parquet — ver [guides/record-save.md](guides/record-save.md)
 - [x] Documentación + ejemplo `examples/books_all_pages.xml` exportando los ocho formatos
 - [x] Liveness en motor — `session-deadline-ms`, `silence-limit-ms`, `session-max-rss-mb`, `session-rss-warn-mb` (opcional), `<session-pulse/>`, pulso automático por hand — ver [Liveness, límites y operación](#liveness-operacion)
+- [x] `set-proxy` (httpx) — `local`, `manual`, `file`, `api`; sesión con proxy + última respuesta; `httpx-last-status` / `httpx-get-headers` / `httpx-get-cookies`; `item` en `box-def` y `shared-box-def` — ver [ADR-004](decisions/ADR-004-set-proxy-design.md) (`type="db"` pendiente)
 
 **Siguiente foco (orden de producto):** cerrar **core estable** → **contrato XML / schema para IDE** (base del plugin) → **plugin VSCode** (ADR-003) para debugear bien → en paralelo diseño fuerte de **proxy** y **storage cloud** para prod (GCP u otros). Guías `docs/guides/*` por hand y `liveness.md` cuando haga falta, sin bloquear el core.
 
@@ -282,7 +283,7 @@ Ver ADR-003 para diseño completo. Objetivo: **debugear workflows** antes de han
 - Variables sensibles muestran valor maskeado
 
 ### Sistema de proxy (muy prioritario)
-**Diseño del hand `set-proxy`:** [ADR-004 — set-proxy (probe, pool, rotación)](decisions/ADR-004-set-proxy-design.md) — tipos `local`, `manual`, `file`, `api`, `db`, parámetros obligatorios/opcionales y ejemplos XML. Implementación en código pendiente.
+**Hand `set-proxy` + sesión httpx:** [ADR-004](decisions/ADR-004-set-proxy-design.md). **Implementado:** `client="httpx"`, tipos `local`, `manual`, `file`, `api`; rotación y probe; `httpx-call` + stream registran última respuesta; **`httpx-last-status`**, **`httpx-get-headers`**, **`httpx-get-cookies`**; **`item`** en **`box-def`** / **`shared-box-def`** para indexar `FListVariable`. **Pendiente:** `type="db"`, Playwright/Scrapling.
 
 Antes de tocar clientes HTTP en serio:
 

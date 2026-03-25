@@ -24,6 +24,8 @@ el contenido. Los valores posibles son:
 
 `text` es el valor por defecto — compatible con el comportamiento actual.
 
+**Cookie jar (sesión):** `auto-cookies="true"` en `<httpx-call>` usa un `httpx.Client` compartido por la sesión del workflow para enviar cookies entre llamadas (como un navegador). `<httpx-close/>` cierra el cliente y bloquea `<httpx-call>` y las hands de introspección hasta que termine `<set-proxy>` de nuevo. Ver [guides/httpx-call.md](../guides/httpx-call.md).
+
 ---
 
 ## Reglas por formato

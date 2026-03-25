@@ -391,7 +391,7 @@ Ver ADR-003 para diseño completo.
 fsspec, S3, GCS, Azure Blob. Configurado en francis-config.yaml (nunca en git).
 
 ### Proxy (`set-proxy`)
-Diseño del hand de probe, pool y rotación (`local`, `manual`, `file`, `api`, `db`): [ADR-004](decisions/ADR-004-set-proxy-design.md). Implementación pendiente.
+Probe, pool y rotación para `client="httpx"`: tipos `local`, `manual`, `file`, `api` en código; `db` pendiente. Sesión: proxy upstream y última `httpx.Response` para `httpx-call` / probes. Hands **`httpx-last-status`**, **`httpx-get-headers`**, **`httpx-get-cookies`** leen esa respuesta (error claro si no hubo petición). **`box-def`** / **`shared-box-def`** admiten **`item="N"`** (1-based) con un hijo **`box`** o **`shared-box`** que apunta a un **`FListVariable`**. [ADR-004](decisions/ADR-004-set-proxy-design.md).
 
 ### Liveness, límites y operación
 En el motor: `session-deadline-ms`, `silence-limit-ms`, y opcionalmente `session-max-rss-mb` / `session-rss-warn-mb` en `<francis-workflow>`, hilo que comprueba deadline, silencio y RSS; pulso automático al inicio de cada hand y al completar un hand con éxito; `<session-pulse/>` para pulsos extra. Detalle: [roadmap.md#liveness-operacion](roadmap.md#liveness-operacion). Capa externa opcional (cron, límites OS) sigue en el roadmap.
@@ -437,3 +437,4 @@ Solo **XML** como lenguaje del workflow. Ver roadmap (YAML como workflow descart
 | Storage cloud | fsspec | ⬜ |
 | FastAPI REST | API de ejecución | ⬜ |
 | Schema / contrato XML (IDE + plugin) | metadatos hands y atributos | ⬜ |
+| set-proxy + sesión httpx (proxy, última respuesta) | `local`/`manual`/`file`/`api`; `db` y hands status/headers/cookies pendientes | parcial |

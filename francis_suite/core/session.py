@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from francis_suite.core.context import FContext
 
@@ -59,6 +59,16 @@ class FrancisSession:
         from francis_suite.core.liveness import SessionLiveness
 
         self._liveness = SessionLiveness(self)
+
+        # httpx: optional upstream proxy URL for httpx-call / set-proxy (ADR-004)
+        self._httpx_proxy_url: str | None = None
+        self._last_httpx_response: Any | None = None
+
+        # httpx.Client with cookie jar — <httpx-call auto-cookies="true"/>
+        self._httpx_cookie_client: Any | None = None
+        self._httpx_cookie_client_proxy_key: str | None = None
+        # After <httpx-close/>: block httpx-call / introspect until <set-proxy> finishes
+        self._httpx_blocked_until_set_proxy: bool = False
 
     # --- Identity ---
 
@@ -156,6 +166,86 @@ class FrancisSession:
     def liveness(self) -> SessionLiveness:
         """Session deadline, silence watchdog, optional RSS limit (see docs/roadmap)."""
         return self._liveness
+
+    # --- HTTP (httpx) — shared with set-proxy and httpx-call ---
+
+    def get_httpx_proxy_url(self) -> str | None:
+        """Upstream proxy URL for httpx (http://user:pass@host:port), or None for direct."""
+        return self._httpx_proxy_url
+
+    def set_httpx_proxy_url(self, url: str | None) -> None:
+        """Replace session proxy. None means direct connection (no upstream proxy)."""
+        if url != self._httpx_proxy_url:
+            self._close_httpx_cookie_client()
+        self._httpx_proxy_url = url
+
+    def record_httpx_response(self, response: Any | None) -> None:
+        """Store last httpx.Response (or None if no response was obtained)."""
+        self._last_httpx_response = response
+
+    def get_last_httpx_response(self) -> Any | None:
+        """Last response from httpx-call or set-proxy probe, if any."""
+        return self._last_httpx_response
+
+    def ensure_httpx_hands_allowed(self) -> None:
+        """
+        Raise if <httpx-close/> ran and <set-proxy> has not completed since then.
+        Used by httpx-call and httpx introspection hands (not by set-proxy internals).
+        """
+        if self._httpx_blocked_until_set_proxy:
+            raise ValueError(
+                "<httpx-close/> was used: run <set-proxy> again before "
+                "<httpx-call>, <httpx-last-status>, <httpx-get-headers>, or "
+                "<httpx-get-cookies>."
+            )
+
+    def acquire_httpx_cookie_client(self, timeout: float) -> Any:
+        """
+        Return a session-scoped httpx.Client that keeps cookies between requests
+        (browser-like). Recreated when the session proxy URL changes.
+        """
+        import httpx
+
+        self.ensure_httpx_hands_allowed()
+
+        cur_proxy = self._httpx_proxy_url
+        if (
+            self._httpx_cookie_client is not None
+            and self._httpx_cookie_client_proxy_key == cur_proxy
+        ):
+            return self._httpx_cookie_client
+
+        self._close_httpx_cookie_client()
+        kw: dict[str, Any] = {"follow_redirects": True, "timeout": timeout}
+        if cur_proxy:
+            kw["proxy"] = cur_proxy
+        self._httpx_cookie_client = httpx.Client(**kw)
+        self._httpx_cookie_client_proxy_key = cur_proxy
+        return self._httpx_cookie_client
+
+    def _close_httpx_cookie_client(self) -> None:
+        c = self._httpx_cookie_client
+        if c is not None:
+            try:
+                c.close()
+            except Exception:
+                pass
+        self._httpx_cookie_client = None
+        self._httpx_cookie_client_proxy_key = None
+
+    def close_http_resources(self) -> None:
+        """Close httpx clients held by the session (call at end of run_session)."""
+        self._close_httpx_cookie_client()
+        self._httpx_blocked_until_set_proxy = False
+
+    def apply_httpx_close(self) -> None:
+        """Close cookie client and require <set-proxy> before more httpx user hands."""
+        self._close_httpx_cookie_client()
+        self._httpx_blocked_until_set_proxy = True
+
+    def clear_httpx_block_after_set_proxy(self) -> None:
+        """Call when <set-proxy> hand completes (success or failure)."""
+        self._httpx_blocked_until_set_proxy = False
 
     # --- Representation ---
 

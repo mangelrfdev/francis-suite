@@ -23,6 +23,7 @@ Usage in XML:
 """
 
 from __future__ import annotations
+from francis_suite.core.expressions import FrancisExpression
 from francis_suite.core.registry import hand
 from francis_suite.core.variables import FVariable, FEmptyVariable, FNodeVariable, is_sensitive_name
 from francis_suite.hands.base import AbstractHand
@@ -77,6 +78,29 @@ class SharedBoxDefHand(AbstractHand):
         else:
             sensitive = is_sensitive_name(name)
 
+        engine = FrancisExpression(self.context)
+        item_raw = (self.attr("item", "") or "").strip()
+        if item_raw:
+            idx = int(engine.resolve(item_raw))
+            if idx < 1:
+                raise ValueError("shared-box-def item must be >= 1 (1-based index).")
+            source = self._resolve_list_source_for_item()
+            if source.is_empty():
+                raise ValueError(
+                    "shared-box-def item: source list variable is missing or empty."
+                )
+            items = source.to_list()
+            if idx > len(items):
+                raise ValueError(
+                    f"shared-box-def item={idx} out of range "
+                    f"(list has {len(items)} element(s))."
+                )
+            result = items[idx - 1]
+            if sensitive and isinstance(result, FNodeVariable):
+                result = result.as_sensitive()
+            self.context.set_shared_box(name, result)
+            return result
+
         if self.has_children():
             result = self.execute_children()
         else:
@@ -92,3 +116,21 @@ class SharedBoxDefHand(AbstractHand):
 
         self.context.set_shared_box(name, result)
         return result
+
+    def _resolve_list_source_for_item(self) -> FVariable:
+        refs = [c for c in self._node.children if c.tag in ("box", "shared-box")]
+        if len(refs) != 1:
+            raise ValueError(
+                'shared-box-def with item= requires exactly one child '
+                '<box name="..."/> or <shared-box name="..."/> '
+                "pointing at the list variable."
+            )
+        ref = refs[0]
+        ref_name = ref.get_attr("name", "").strip()
+        if not ref_name:
+            raise ValueError(
+                "shared-box-def item: child must have a non-empty name attribute."
+            )
+        if ref.tag == "shared-box":
+            return self.context.get_shared_box(ref_name)
+        return self.context.get(ref_name)

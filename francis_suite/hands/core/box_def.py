@@ -22,6 +22,7 @@ Usage in XML:
 """
 
 from __future__ import annotations
+from francis_suite.core.expressions import FrancisExpression
 from francis_suite.core.registry import hand
 from francis_suite.core.variables import FVariable, FNodeVariable, FEmptyVariable, is_sensitive_name
 from francis_suite.hands.base import AbstractHand
@@ -58,6 +59,11 @@ class BoxDefHand(AbstractHand):
 
         <!-- force not sensitive -->
         <box-def name="token_count" sensitive="false">100</box-def>
+
+        <!-- pick one element from a list (1-based item index) -->
+        <box-def name="siteOk" item="1">
+            <box name="setProxyValues"/>
+        </box-def>
     """
 
     def execute(self) -> FVariable:
@@ -69,6 +75,28 @@ class BoxDefHand(AbstractHand):
             sensitive = sensitive_attr.lower() == "true"
         else:
             sensitive = is_sensitive_name(var_name)
+
+        engine = FrancisExpression(self.context)
+        item_raw = (self.attr("item", "") or "").strip()
+        if item_raw:
+            idx = int(engine.resolve(item_raw))
+            if idx < 1:
+                raise ValueError("box-def item must be >= 1 (1-based index).")
+            source = self._resolve_list_source_for_item()
+            if source.is_empty():
+                raise ValueError(
+                    "box-def item: source list variable is missing or empty."
+                )
+            items = source.to_list()
+            if idx > len(items):
+                raise ValueError(
+                    f"box-def item={idx} out of range (list has {len(items)} element(s))."
+                )
+            result = items[idx - 1]
+            if sensitive and isinstance(result, FNodeVariable):
+                result = result.as_sensitive()
+            self.context.set(var_name, result)
+            return result
 
         if self.has_children():
             result = self.execute_children()
@@ -85,3 +113,18 @@ class BoxDefHand(AbstractHand):
 
         self.context.set(var_name, result)
         return result
+
+    def _resolve_list_source_for_item(self) -> FVariable:
+        refs = [c for c in self._node.children if c.tag in ("box", "shared-box")]
+        if len(refs) != 1:
+            raise ValueError(
+                'box-def with item= requires exactly one child <box name="..."/> '
+                'or <shared-box name="..."/> pointing at the list variable.'
+            )
+        ref = refs[0]
+        name = ref.get_attr("name", "").strip()
+        if not name:
+            raise ValueError("box-def item: child must have a non-empty name attribute.")
+        if ref.tag == "shared-box":
+            return self.context.get_shared_box(name)
+        return self.context.get(name)

@@ -2,7 +2,17 @@
 
 ## Estado
 
-**Diseño acordado (documentación).** El hand **no está implementado** en el motor a la fecha de este ADR. Cuando se implemente, este documento es la referencia de contrato XML; los detalles finos (valor de retorno en `FVariable`, cliente httpx por sesión) se cerrarán en código y tests.
+**Diseño + implementación en código (salvo `type="db"`).** El hand **`<set-proxy>`** acepta **`client="httpx"`** y **`type`:** `local`, `manual`, `file`, `api`. **`type="db"`** no está implementado: hoy **no hay** capa genérica de “consultar una DB” en el motor (ni DSN en `francis-config` resuelto a conexión); cuando exista, se enlazará aquí.
+
+- **Sesión (interno):** `FrancisSession` guarda el **proxy httpx elegido** y la **última `httpx.Response`** para que **`httpx-call`** use el mismo proxy sin repetirlo en cada tag y para que **`httpx-last-status`**, **`httpx-get-headers`**, **`httpx-get-cookies`** lean status/headers/cookies. Es mecanismo de motor; el contrato que ves en XML sigue siendo la lista de 3 valores de `set-proxy`.
+- **`httpx-call`:** aplica proxy de sesión y registra la última respuesta (también tras **`response="stream"`** una vez obtenido `200` y antes de leer el cuerpo).
+- **Retorno `set-proxy`:** siempre **`FListVariable` de 3 elementos:** (1) `"true"` o `"false"`, (2) texto del **último probe** (HTML o cuerpo tal cual), (3) XML derivado cuando el cuerpo no era XML válido (HTML pasado por lxml). **Incluso si (1) es `false`**, (2) y (3) corresponden a ese último intento — no se vacían.
+- **“Limpiar proxy de sesión” si `false`:** solo significa `set_httpx_proxy_url(None)` para que **siguientes `httpx-call` no salgan por un proxy que falló el match**. No borra el retorno de la lista de 3; el usuario puede guardar esa lista en una box y ramificar con `exit` / condiciones.
+- **`item` en `<box-def>` / `<shared-box-def>`:** atributo opcional **`item="N"`** (índice **1-based**). Requiere **exactamente un** hijo `<box name="lista"/>` o `<shared-box name="lista"/>` que apunte a la variable **`FListVariable`** (p. ej. resultado de `set-proxy`). Así podés hacer `siteAvailable` = ítem 1, `startHTML` = ítem 2, `startXML` = ítem 3.
+- **Introspección:** implementados **`<httpx-last-status/>`**, **`<httpx-get-headers/>`** (opcional `name`), **`<httpx-get-cookies/>`** (opcional `name`). Si no hubo petición aún → `ValueError` con mensaje explícito. Cookies: vista plana `nombre → valor` en JSON; colisiones por dominio/path pueden requerir un hand futuro con más atributos.
+- **Pendiente:** `type="db"`; Playwright/Scrapling.
+
+Este ADR sigue siendo la referencia de contrato XML.
 
 ---
 
@@ -24,6 +34,53 @@ Los clientes HTTP pueden divergir (**httpx** hoy; **Playwright** / **Scrapling**
 - **`api`:** lista obtenida de un endpoint HTTP (JSON acordado).
 - **`db`:** lista obtenida vía configuración segura (DSN / query fuera del repo, referencia por clave en config).
 - Nombres de tags y atributos en **kebab-case** y **autodescriptivos** (convención del proyecto).
+
+---
+
+## Método del probe: GET por defecto
+
+**`<set-proxy-method>`** por defecto es **`GET`** si el hijo falta o va vacío: los probes suelen ser lecturas idempotentes. Si tu URL de comprobación exige **POST** (como en tu flujo anterior), declará explícitamente `<set-proxy-method>POST</set-proxy-method>`. No es el default global de toda la web; es el default **opinado** solo para este probe.
+
+---
+
+## `pool-size` y `provider`
+
+- **`pool-size`:** opcional en `<proxy-param name="pool-size">`. Si falta, el motor usa **10** como máximo de entradas tras mezclar la lista.
+- **`provider`:** opcional; filtra entradas del JSON cuyo campo `provider` coincida (si el campo no existe en un ítem, ese ítem no pasa el filtro cuando `provider` está definido).
+
+---
+
+## Ejemplo JSON — lista de proxies (`file` / `api`)
+
+Raíz **array** o objeto con **`proxies`** / **`items`**. Cada elemento es un objeto; **`host`** y **`port`** son obligatorios. Opcionales: **`scheme`** (default `http`), **`username`** / **`password`** (o `user` / `pass`), **`provider`** (para filtrar).
+
+```json
+[
+  {
+    "scheme": "http",
+    "host": "proxy1.ejemplo.com",
+    "port": 8080,
+    "username": "user1",
+    "password": "secret1",
+    "provider": "datacenter-east"
+  },
+  {
+    "scheme": "http",
+    "host": "proxy2.ejemplo.com",
+    "port": 3128
+  }
+]
+```
+
+Equivalente con envoltorio:
+
+```json
+{
+  "proxies": [
+    {"host": "10.0.0.1", "port": 8888, "scheme": "http"}
+  ]
+}
+```
 
 ---
 
@@ -208,12 +265,11 @@ Los ejemplos usan `<box-def>` como contenedor ilustrativo; el hand real puede ej
 
 ---
 
-## Extensiones relacionadas (fuera del alcance inmediato de este ADR)
+## Extensiones / futuro
 
-- **Valor de retorno:** estructura en variable (p. ej. éxito del probe, último HTML, vista XML) — definir tipo `FVariable` o múltiples shared-boxes en la implementación.
-- **Indexar resultados tipo `item="1"` en `<box-def>`:** no existe en el motor hoy; requeriría cambio de contexto/parser o convención de nombres de variables.
-- **Hands de introspección httpx:** último status, headers, cookies — requieren **cliente/sesión httpx compartida** en la sesión Francis y actualización tras cada `httpx-call`; mensaje claro si aún no hubo petición.
-- **Cookies:** identificación por nombre; si hay ambigüedad, atributos extra (dominio / URL) según el modelo de `httpx`.
+- **`type="db"`** cuando exista configuración y driver de acceso a datos acordados.
+- **Cookies con dominio/path** explícitos en XML si hace falta desambiguar (hoy: mapa plano por nombre en la última respuesta).
+- **Playwright / Scrapling** — proxy y última respuesta por stack.
 
 ---
 

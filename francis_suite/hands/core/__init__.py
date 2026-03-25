@@ -15,6 +15,9 @@ from francis_suite.hands.core import sleep_min
 from francis_suite.hands.core import sleep_avg
 from francis_suite.hands.core import sleep_max
 from francis_suite.hands.core import httpx_call
+from francis_suite.hands.core import httpx_cookie_jar
+from francis_suite.hands.core import httpx_introspect
+from francis_suite.hands.core import set_proxy
 from francis_suite.hands.core import convert_html_to_xml
 from francis_suite.hands.core import convert_binary_to_base64
 from francis_suite.hands.core import convert_base64_to_binary

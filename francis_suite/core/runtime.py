@@ -148,6 +148,7 @@ class FRuntime:
             ))
         finally:
             session.liveness.stop_watch_thread()
+            session.close_http_resources()
 
         self._persist_private_record_metadata(session)
 

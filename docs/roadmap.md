@@ -282,7 +282,9 @@ Ver ADR-003 para diseño completo. Objetivo: **debugear workflows** antes de han
 - Variables sensibles muestran valor maskeado
 
 ### Sistema de proxy (muy prioritario)
-Diseño explícito antes de tocar clientes HTTP:
+**Diseño del hand `set-proxy`:** [ADR-004 — set-proxy (probe, pool, rotación)](decisions/ADR-004-set-proxy-design.md) — tipos `local`, `manual`, `file`, `api`, `db`, parámetros obligatorios/opcionales y ejemplos XML. Implementación en código pendiente.
+
+Antes de tocar clientes HTTP en serio:
 
 - Uso **manual** (p. ej. elegir proxy local vs otro)
 - Credenciales / config desde **archivo (path)** o desde **respuesta de una API**
@@ -338,5 +340,6 @@ El workflow declarativo de Francis Suite es **solo XML**. No hay plan de `FYamlP
 - [x] Compatibilidad universal — pathlib, as_posix(), utf-8
 - [x] ADR-002 — formatos HTTP
 - [x] ADR-003 — debug, observabilidad, plugin VSCode
+- [x] ADR-004 — diseño `set-proxy` (documentado; código pendiente)
 - [x] 125 tests pasando (`pytest tests/`)
 - [x] Ejemplo `books_all_pages.xml` — scrape paginado del sitio demo books.toscrape.com + exports `output/books.*`

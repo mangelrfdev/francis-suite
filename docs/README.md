@@ -7,7 +7,7 @@
 | [architecture.md](architecture.md) | Arquitectura, reglas de hands, FContext, records, CLI, estado del proyecto |
 | [roadmap.md](roadmap.md) | Hitos, pendientes, futuro; **[Liveness y operación](roadmap.md#liveness-operacion)** (deadline, watchdog, heartbeat, capa prod) |
 | **Guías** (`guides/`) | Uso práctico por tema |
-| **Decisiones** (`decisions/ADR-*.md`) | ADRs aceptados |
+| **Decisiones** (`decisions/ADR-*.md`) | ADRs; proxy: [ADR-004](decisions/ADR-004-set-proxy-design.md) |
 
 ## Guías (`guides/`)
 

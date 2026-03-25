@@ -390,6 +390,9 @@ Ver ADR-003 para diseño completo.
 ### Storage Provider
 fsspec, S3, GCS, Azure Blob. Configurado en francis-config.yaml (nunca en git).
 
+### Proxy (`set-proxy`)
+Diseño del hand de probe, pool y rotación (`local`, `manual`, `file`, `api`, `db`): [ADR-004](decisions/ADR-004-set-proxy-design.md). Implementación pendiente.
+
 ### Liveness, límites y operación
 En el motor: `session-deadline-ms`, `silence-limit-ms`, y opcionalmente `session-max-rss-mb` / `session-rss-warn-mb` en `<francis-workflow>`, hilo que comprueba deadline, silencio y RSS; pulso automático al inicio de cada hand y al completar un hand con éxito; `<session-pulse/>` para pulsos extra. Detalle: [roadmap.md#liveness-operacion](roadmap.md#liveness-operacion). Capa externa opcional (cron, límites OS) sigue en el roadmap.
 

@@ -8,6 +8,7 @@
         - scraper_name — label for metadata exports (can match workflow_key).
         - case_key — optional “case” / client tag; omit <record-metadata> or drop case_key for cleaner rows.
         Session also has workflow_name = file stem (CLI). Metadata below is optional public fields on record-save when include-metadata="true".
+        record-export-* lives under <record-create> once; each <record-save> is only format + path — see docs/guides/record-save.md.
         Run: uv run francis-suite run examples/all_books_pages.xml
     -->
 
@@ -27,6 +28,12 @@
             <metadata-add-field name="scraper_name">${scraper_name}</metadata-add-field>
             <metadata-add-field name="case_key">${case_key}</metadata-add-field>
         </record-metadata>
+        <record-export-attr name="example">all_books_pages</record-export-attr>
+        <record-export-attr name="case_key">${case_key}</record-export-attr>
+        <record-export-attr name="source">books.toscrape.com</record-export-attr>
+        <record-export-system name="session_id"/>
+        <record-export-system name="exported_at"/>
+        <record-export-system name="francis_suite_version"/>
         <record-set-group name="book" required="true">
             <!-- workflow_key: same for every row — included in <record-key> with url_libro -->
             <record-set-field name="workflow_key" type="string" required="true"/>
@@ -117,14 +124,14 @@
 
     <log>Listo — ver output/all_books_pages_log.txt (log línea a línea) y output/all_books_pages.* (exports)</log>
 
-    <!-- include-metadata="true" only where you want scraper_name / case_key in the file; false = rows only -->
-    <record-save from="booksRecords" format="json"     path="output/all_books_pages.json"     include-metadata="true"/>
-    <record-save from="booksRecords" format="csv"      path="output/all_books_pages.csv"      include-metadata="false"/>
-    <record-save from="booksRecords" format="ndjson"   path="output/all_books_pages.ndjson"   include-metadata="false"/>
-    <record-save from="booksRecords" format="xml"      path="output/all_books_pages.records.xml" include-metadata="true"/>
-    <record-save from="booksRecords" format="html"     path="output/all_books_pages.html" html-title="Books to Scrape — all pages" include-metadata="true"/>
-    <record-save from="booksRecords" format="txt"      path="output/all_books_pages.txt"      include-metadata="false"/>
-    <record-save from="booksRecords" format="excel"    path="output/all_books_pages.xlsx" sheet-name="Libros" include-metadata="true"/>
-    <record-save from="booksRecords" format="parquet"  path="output/all_books_pages.parquet" include-metadata="false"/>
+    <!-- include-metadata: true where public metadata (scraper_name, case_key) is wanted; false = data-focused files -->
+    <record-save from="booksRecords" format="json" path="output/all_books_pages.json" include-metadata="true"/>
+    <record-save from="booksRecords" format="csv" path="output/all_books_pages.csv" include-metadata="false"/>
+    <record-save from="booksRecords" format="ndjson" path="output/all_books_pages.ndjson" include-metadata="false"/>
+    <record-save from="booksRecords" format="xml" path="output/all_books_pages.records.xml" include-metadata="true"/>
+    <record-save from="booksRecords" format="html" path="output/all_books_pages.html" html-title="Books to Scrape — all pages" include-metadata="true"/>
+    <record-save from="booksRecords" format="txt" path="output/all_books_pages.txt" include-metadata="false"/>
+    <record-save from="booksRecords" format="excel" path="output/all_books_pages.xlsx" sheet-name="Libros" include-metadata="true"/>
+    <record-save from="booksRecords" format="parquet" path="output/all_books_pages.parquet" include-metadata="false"/>
 
 </francis-workflow>

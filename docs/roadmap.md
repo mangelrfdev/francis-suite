@@ -101,6 +101,8 @@ record-add con key duplicado → skip con log:
 
 Incluye: `xml`, `html`, `txt` (tab-separated), `excel` / `xlsx`, `parquet` (además de json, csv, ndjson).
 
+**Metadatos de exportación unificados:** declarados en `<record-create>` (`<record-export-attr>` / `<record-export-system>`, alias `<xml-root-*>`); cada `<record-save>` solo elige formato; tabla por destino en [guides/record-save.md](guides/record-save.md).
+
 **Evolutivo / diseño avanzado** (`metadata-placement`, plantillas txt libres, etc.): [guides/record-save-formats.md](guides/record-save-formats.md).
 
 ---

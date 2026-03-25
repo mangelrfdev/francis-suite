@@ -72,9 +72,16 @@ class RecordCreateHand(AbstractHand):
             <key-field name="fieldName"/>  — bare name if unique across groups
             <key-field name="group.field"/> — qualified if ambiguous
 
+        <record-export-attr name="...">value</record-export-attr> — optional; key/value for every record-save (body supports ${})
+        <record-export-system name="session_id"/> — include session id at save time (same idea as xml-include-root-session-id)
+        <record-export-system name="francis_suite_version"/> — framework version string
+        <record-export-system name="exported_at"/> — UTC ISO timestamp at save time
+        Legacy aliases: <xml-root-attr>, <xml-root-system> (same semantics; name is historical)
+
     Notes:
         - <record-metadata> and <record-set-group> can appear in any order
         - Public metadata only appears in output when include-metadata="true" in record-save
+        - record-export-* is applied on every record-save; formats that cannot embed extras simply omit them
         - Private metadata is always generated automatically
 
     Auto-computed metadata fields (use without value):
@@ -148,6 +155,24 @@ class RecordCreateHand(AbstractHand):
                 if key_node.tag != "key-field":
                     continue
                 schema.add_record_key_field(key_node.require_attr("name"))
+
+        def _mark_export_system(name_raw: str) -> None:
+            key = engine.resolve(name_raw).strip().lower()
+            if key in ("session_id", "session-id"):
+                schema.export_want_session_id = True
+            elif key in ("francis_suite_version", "francis-version", "francis_version"):
+                schema.export_want_francis_version = True
+            elif key in ("exported_at", "exported-at", "generated_at"):
+                schema.export_want_exported_at = True
+
+        for child in by_tag["record-export-attr"]:
+            schema.export_custom_attrs.append((child.require_attr("name"), child.text or ""))
+        for child in by_tag["xml-root-attr"]:
+            schema.export_custom_attrs.append((child.require_attr("name"), child.text or ""))
+        for child in by_tag["record-export-system"]:
+            _mark_export_system(child.require_attr("name"))
+        for child in by_tag["xml-root-system"]:
+            _mark_export_system(child.require_attr("name"))
 
         record = FRecord(schema=schema)
         self.context.set_shared_box(name, record)

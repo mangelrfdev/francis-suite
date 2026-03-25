@@ -23,7 +23,7 @@ francis-suite run examples/books_scraper.xml
 | File | What it shows |
 |------|----------------|
 | `examples/books_scraper.xml` | Single page, loop over books, `<log>` |
-| `examples/books_all_pages.xml` | Paginated scrape + `record-create` / `record-add` + **eight** `<record-save>` formats (`output/books.*`) |
+| `examples/books_all_pages.xml` | Paginated scrape + `record-create` (`record-export-*` una vez) + **eight** `<record-save>` → `output/books.*` |
 | `examples/test_boolean.xml`, `examples/test_sensitive.xml` | Tiny workflows for conditions / sensitive masking |
 
 Full **record-save** reference (formats, attributes, samples): [docs/guides/record-save.md](docs/guides/record-save.md).

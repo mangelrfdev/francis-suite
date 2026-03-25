@@ -8,8 +8,13 @@
     <box-def name="pagina">0</box-def>
     <box-def name="contador">0</box-def>
 
-    <!-- Record: una fila por libro (mismo scrape, también en structured data) -->
+    <!-- Record: una fila por libro; export-* se aplica a cada record-save (formatos que no lo soportan lo omiten) -->
     <record-create name="booksRecords">
+        <record-export-attr name="example">books_all_pages</record-export-attr>
+        <record-export-attr name="source">books.toscrape.com</record-export-attr>
+        <record-export-system name="session_id"/>
+        <record-export-system name="exported_at"/>
+        <record-export-system name="francis_suite_version"/>
         <record-set-group name="book" required="true">
             <record-set-field name="record_key" type="string" required="true"/>
             <record-set-field name="titulo"           type="string" required="true"/>
@@ -95,14 +100,14 @@
 
     <log>Scraping completado — ver output/todos_los_libros.txt y los exports en output/books.*</log>
 
-    <!-- Mismos datos en todos los formatos soportados por record-save -->
-    <record-save from="booksRecords" format="json"     path="output/books.json"/>
-    <record-save from="booksRecords" format="csv"      path="output/books.csv"/>
-    <record-save from="booksRecords" format="ndjson"   path="output/books.ndjson"/>
-    <record-save from="booksRecords" format="xml"      path="output/books.xml"/>
-    <record-save from="booksRecords" format="html"    path="output/books.html" html-title="Books to Scrape"/>
-    <record-save from="booksRecords" format="txt"     path="output/books.txt"/>
-    <record-save from="booksRecords" format="excel"   path="output/books.xlsx" sheet-name="Libros"/>
+    <!-- Ocho saves: solo format + path; los extras vienen del <record-create> (docs/guides/record-save.md) -->
+    <record-save from="booksRecords" format="json" path="output/books.json"/>
+    <record-save from="booksRecords" format="csv" path="output/books.csv"/>
+    <record-save from="booksRecords" format="ndjson" path="output/books.ndjson"/>
+    <record-save from="booksRecords" format="xml" path="output/books.xml"/>
+    <record-save from="booksRecords" format="html" path="output/books.html" html-title="Books to Scrape"/>
+    <record-save from="booksRecords" format="txt" path="output/books.txt"/>
+    <record-save from="booksRecords" format="excel" path="output/books.xlsx" sheet-name="Libros"/>
     <record-save from="booksRecords" format="parquet" path="output/books.parquet"/>
 
 </francis-workflow>

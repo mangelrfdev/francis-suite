@@ -348,6 +348,13 @@ class FRecordSchema:
         # Stored as "group.field" keys in declaration order
         self.record_key_keys: list[str] = []
 
+        # export augmentation — from <record-export-*> / legacy <xml-root-*> under <record-create>
+        # Resolved at record-save time (supports ${} in name/body)
+        self.export_custom_attrs: list[tuple[str, str]] = []
+        self.export_want_session_id: bool = False
+        self.export_want_francis_version: bool = False
+        self.export_want_exported_at: bool = False
+
     def add_group(self, group: FRecordGroup) -> None:
         self.groups[group.name] = group
 
@@ -718,7 +725,7 @@ class FRecord(FVariable):
             sheet_name:             excel — main data sheet name
             metadata_sheet_name:    excel — second sheet for public metadata (if include_metadata)
             html_title:             html — <title> and main heading (default: workflow name)
-            export_augmentation:    optional key/value from <record-export-*> — applied per format
+            export_augmentation:    optional key/value (from record-create or caller) — applied per format
             xml_*:                  only for format xml — see _save_xml
         """
         output_path = Path(path)

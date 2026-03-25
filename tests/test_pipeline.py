@@ -2758,12 +2758,13 @@ def test_record_save_xml(tmp_path):
 
 
 def test_record_save_xml_root_attrs_optional(tmp_path):
-    """record-save xml: optional root/record attrs, extras, total_records from row count."""
+    """record-save xml: root attrs from record-create; per-record attrs on record-save."""
     output = tmp_path / "out.xml"
 
     xml = f"""
     <francis-workflow>
         <record-create name="testRecords">
+            <xml-root-attr name="client">acme</xml-root-attr>
             <record-set-group name="item" required="true">
                 <record-set-field name="nombre" type="string" required="true"/>
             </record-set-group>
@@ -2777,7 +2778,6 @@ def test_record_save_xml_root_attrs_optional(tmp_path):
                      xml-include-root-workflow="false"
                      xml-include-record-workflow="false"
                      xml-include-record-key="false">
-            <xml-root-attr name="client">acme</xml-root-attr>
             <xml-record-attr name="source">scraping</xml-record-attr>
         </record-save>
     </francis-workflow>
@@ -2799,12 +2799,15 @@ def test_record_save_xml_root_attrs_optional(tmp_path):
 
 
 def test_record_save_xml_built_in_root_attrs(tmp_path):
-    """record-save xml: xml-root-system enables session_id, francis_suite_version, exported_at from code."""
+    """record-create xml-root-system enables session_id, francis_suite_version, exported_at on save."""
     output = tmp_path / "sys.xml"
 
     xml = f"""
     <francis-workflow>
         <record-create name="testRecords">
+            <xml-root-system name="session_id"/>
+            <xml-root-system name="francis_suite_version"/>
+            <xml-root-system name="exported_at"/>
             <record-set-group name="item" required="true">
                 <record-set-field name="nombre" type="string" required="true"/>
             </record-set-group>
@@ -2816,11 +2819,7 @@ def test_record_save_xml_built_in_root_attrs(tmp_path):
         </record-add>
         <record-save from="testRecords" format="xml" path="{output.as_posix()}"
                      xml-include-root-workflow="false"
-                     xml-include-root-total-records="false">
-            <xml-root-system name="session_id"/>
-            <xml-root-system name="francis_suite_version"/>
-            <xml-root-system name="exported_at"/>
-        </record-save>
+                     xml-include-root-total-records="false"/>
     </francis-workflow>
     """
 
@@ -2838,13 +2837,15 @@ def test_record_save_xml_built_in_root_attrs(tmp_path):
     assert "total_records=" not in text
 
 
-def test_record_save_json_export_children(tmp_path):
-    """record-save json: record-export-attr and record-export-system embed _export (any format)."""
+def test_record_save_json_export_from_record_create(tmp_path):
+    """record-create record-export-* is embedded as _export on json (and other formats)."""
     output = tmp_path / "exp.json"
 
     xml = f"""
     <francis-workflow>
         <record-create name="testRecords">
+            <record-export-attr name="client">acme</record-export-attr>
+            <record-export-system name="francis_suite_version"/>
             <record-set-group name="item" required="true">
                 <record-set-field name="nombre" type="string" required="true"/>
             </record-set-group>
@@ -2854,10 +2855,7 @@ def test_record_save_json_export_children(tmp_path):
                 <record-add-field name="nombre">X</record-add-field>
             </record-add-group>
         </record-add>
-        <record-save from="testRecords" format="json" path="{output.as_posix()}">
-            <record-export-attr name="client">acme</record-export-attr>
-            <record-export-system name="francis_suite_version"/>
-        </record-save>
+        <record-save from="testRecords" format="json" path="{output.as_posix()}"/>
     </francis-workflow>
     """
 

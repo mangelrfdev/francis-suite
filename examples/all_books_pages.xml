@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<francis-workflow>
+
+    <!--
+        All pages — books.toscrape.com catalogue (every listing page).
+        RecordKey: <record-key> on workflow_key + url_libro → hash (recordKey) + dedup (same book in another workflow = different key). Optional below:
+        - workflow_key — stable id for this workflow (CaseKey-style); part of RecordKey.
+        - scraper_name — label for metadata exports (can match workflow_key).
+        - case_key — optional “case” / client tag; omit <record-metadata> or drop case_key for cleaner rows.
+        Session also has workflow_name = file stem (CLI). Metadata below is optional public fields on record-save when include-metadata="true".
+        Run: uv run francis-suite run examples/all_books_pages.xml
+    -->
+
+    <!-- Optional identity — remove <record-metadata> block below (or leave include-metadata false) for client-ready “data only” files -->
+    <box-def name="workflow_key">books_toscrape_all_pages</box-def>
+    <box-def name="scraper_name">books_toscrape_all_pages</box-def>
+    <box-def name="case_key">demo-books-catalogue</box-def>
+
+    <box-def name="base_url">http://books.toscrape.com/catalogue/</box-def>
+    <box-def name="url_actual">http://books.toscrape.com/catalogue/page-1.html</box-def>
+    <box-def name="hay_siguiente">true</box-def>
+    <box-def name="pagina">0</box-def>
+    <box-def name="contador">0</box-def>
+
+    <record-create name="booksRecords">
+        <record-metadata>
+            <metadata-add-field name="scraper_name">${scraper_name}</metadata-add-field>
+            <metadata-add-field name="case_key">${case_key}</metadata-add-field>
+        </record-metadata>
+        <record-set-group name="book" required="true">
+            <!-- workflow_key: same for every row — included in <record-key> with url_libro -->
+            <record-set-field name="workflow_key" type="string" required="true"/>
+            <!-- url_libro: stable per book — RecordKey pairs with workflow_key -->
+            <record-set-field name="url_libro" type="string" required="true"/>
+            <record-set-field name="record_key" type="string" required="true"/>
+            <record-set-field name="titulo"     type="string" required="true"/>
+            <record-set-field name="precio"     type="string" required="true"/>
+        </record-set-group>
+        <record-key>
+            <key-field name="workflow_key"/>
+            <key-field name="url_libro"/>
+        </record-key>
+    </record-create>
+
+    <file-write path="output/all_books_pages_log.txt" mkdir="true"> </file-write>
+
+    <while condition="${hay_siguiente.toBoolean()}" max-loops="60">
+
+        <box-def name="pagina">
+            <evaluate>${pagina} + 1</evaluate>
+        </box-def>
+
+        <log>Scraping página ${pagina}: ${url_actual}</log>
+
+        <box-def name="html">
+            <httpx-call url="${url_actual}"/>
+        </box-def>
+
+        <box-def name="xml">
+            <convert-html-to-xml>${html}</convert-html-to-xml>
+        </box-def>
+
+        <box-def name="libros">
+            <xpath-extract expression="//article[@class='product_pod']">${xml}</xpath-extract>
+        </box-def>
+
+        <loop item="libro" index="i">
+            <loop-list>
+                <box name="libros"/>
+            </loop-list>
+            <loop-body>
+                <box-def name="url_libro">
+                    <xpath-extract expression=".//h3/a/@href">${libro}</xpath-extract>
+                </box-def>
+                <box-def name="titulo">
+                    <xpath-extract expression=".//h3/a/@title">${libro}</xpath-extract>
+                </box-def>
+                <box-def name="precio">
+                    <xpath-extract expression=".//p[@class='price_color']/text()">${libro}</xpath-extract>
+                </box-def>
+                <box-def name="contador">
+                    <evaluate>${contador} + 1</evaluate>
+                </box-def>
+                <box-def name="record_key">
+                    <compose>book-${contador}</compose>
+                </box-def>
+                <log>contador: ${contador}</log>
+                <file-write path="output/all_books_pages_log.txt" append="true" newline="true">${contador} - ${url_libro} - Title: ${titulo} - Price: ${precio}</file-write>
+                <record-add to="booksRecords">
+                    <record-add-group name="book">
+                        <record-add-field name="workflow_key">${workflow_key}</record-add-field>
+                        <record-add-field name="url_libro">${url_libro}</record-add-field>
+                        <record-add-field name="record_key">${record_key}</record-add-field>
+                        <record-add-field name="titulo">${titulo}</record-add-field>
+                        <record-add-field name="precio">${precio}</record-add-field>
+                    </record-add-group>
+                </record-add>
+            </loop-body>
+        </loop>
+
+        <box-def name="next_href">
+            <xpath-extract expression="//li[@class='next']/a/@href">${xml}</xpath-extract>
+        </box-def>
+
+        <if condition="${next_href.isEmpty()}">
+            <box-def name="hay_siguiente">false</box-def>
+        </if>
+        <else>
+            <box-def name="url_actual">
+                <compose>${base_url}${next_href}</compose>
+            </box-def>
+            <log>Siguiente URL: ${url_actual}</log>
+        </else>
+
+        <sleep ms="1000"/>
+    </while>
+
+    <log>Listo — ver output/all_books_pages_log.txt (log línea a línea) y output/all_books_pages.* (exports)</log>
+
+    <!-- include-metadata="true" only where you want scraper_name / case_key in the file; false = rows only -->
+    <record-save from="booksRecords" format="json"     path="output/all_books_pages.json"     include-metadata="true"/>
+    <record-save from="booksRecords" format="csv"      path="output/all_books_pages.csv"      include-metadata="false"/>
+    <record-save from="booksRecords" format="ndjson"   path="output/all_books_pages.ndjson"   include-metadata="false"/>
+    <record-save from="booksRecords" format="xml"      path="output/all_books_pages.records.xml" include-metadata="true"/>
+    <record-save from="booksRecords" format="html"     path="output/all_books_pages.html" html-title="Books to Scrape — all pages" include-metadata="true"/>
+    <record-save from="booksRecords" format="txt"      path="output/all_books_pages.txt"      include-metadata="false"/>
+    <record-save from="booksRecords" format="excel"    path="output/all_books_pages.xlsx" sheet-name="Libros" include-metadata="true"/>
+    <record-save from="booksRecords" format="parquet"  path="output/all_books_pages.parquet" include-metadata="false"/>
+
+</francis-workflow>

@@ -193,6 +193,21 @@ Roadmap y pendientes detallados: **`docs/roadmap.md`** (no duplicar aquí; evita
 
 ---
 
+## Schema XML (insumo del plugin)
+
+Francis Suite genera su propio schema automáticamente.
+Comando: python -m francis_suite schema
+Output: schema/francis-workflow.schema.json
+
+Este schema describe todos los hands registrados, sus atributos,
+tipos y valores permitidos. El plugin VSCode lo consume para
+autocompletado, syntax highlighting y documentación inline.
+
+Cada vez que se agrega un hand nuevo hay que correr este comando
+y commitear el schema actualizado.
+
+---
+
 ## Seguridad en el repo
 
 - **No** poner claves, tokens ni secretos en reglas ni en código versionado. Usar variables de entorno (p.ej. `.env` local, no commiteado).

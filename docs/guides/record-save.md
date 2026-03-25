@@ -73,7 +73,24 @@ book-2,Tipping the Velvet,£53.74
 {"book":{"record_key":"book-2","titulo":"Tipping the Velvet","precio":"£53.74"}}
 ```
 
-### `xml` (estructura; `workflow` y `recordKey` en `<record>` vienen del runtime)
+### `xml`
+
+Raíz `<Records>` y un `<record>` por fila. Atributos **integrados** (todos se pueden apagar con flags):
+
+| Atributo | Dónde | Origen | Activar / omitir |
+|----------|--------|--------|-------------------|
+| `workflow` | `<Records>`, `<record>` | `session.workflow_name` (stem del XML al correr con CLI) | Flags `xml-include-root-workflow`, `xml-include-record-workflow` (default true) |
+| `total_records` | `<Records>` | **Siempre** `len(rows)` — calculado en código, nunca manual | `xml-include-root-total-records` (default true) |
+| `session_id` | `<Records>` | `session.id` (UUID de la corrida) | `xml-include-root-session-id="true"` o `<xml-root-system name="session_id"/>` |
+| `francis_suite_version` | `<Records>` | Constante del framework en código | `xml-include-root-francis-version` o `<xml-root-system name="francis_suite_version"/>` |
+| `exported_at` | `<Records>` | Marca UTC ISO al guardar el archivo | `xml-include-root-exported-at` o `<xml-root-system name="exported_at"/>` |
+| `recordKey` | `<record>` | Si hay `<record-key>` — hash SHA-256 | `xml-include-record-key` (default true) |
+
+**Custom (lo que quieras):** hijos `<xml-root-attr>` / `<xml-root-attr name="client">${cliente}</xml-root-attr>` — valores libres; los **integrados** de la tabla se aplican después y **pisan** el mismo nombre si ambos están activos (los de sistema tienen prioridad para `workflow`, `total_records`, etc.).
+
+**Atributos integrados desde el XML del workflow:** también podés usar `<xml-root-system name="session_id"/>` (sin cuerpo) en lugar de flags booleanos.
+
+Ejemplo (mismos datos, dos filas ficticias):
 
 ```xml
 <?xml version='1.0' encoding='UTF-8'?>

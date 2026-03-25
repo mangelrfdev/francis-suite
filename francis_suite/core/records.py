@@ -31,7 +31,7 @@ import sys
 import socket
 import platform
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from lxml import etree
@@ -696,6 +696,16 @@ class FRecord(FVariable):
         sheet_name: str = "Data",
         metadata_sheet_name: str = "Metadata",
         html_title: str | None = None,
+        export_augmentation: dict[str, str] | None = None,
+        xml_include_root_workflow: bool = True,
+        xml_include_root_total_records: bool = True,
+        xml_include_root_session_id: bool = False,
+        xml_include_root_francis_version: bool = False,
+        xml_include_root_exported_at: bool = False,
+        xml_include_record_workflow: bool = True,
+        xml_include_record_key: bool = True,
+        xml_root_extra_attrs: dict[str, str] | None = None,
+        xml_record_extra_attrs: dict[str, str] | None = None,
     ) -> None:
         """
         Persist the record collection to disk.
@@ -708,29 +718,70 @@ class FRecord(FVariable):
             sheet_name:             excel — main data sheet name
             metadata_sheet_name:    excel — second sheet for public metadata (if include_metadata)
             html_title:             html — <title> and main heading (default: workflow name)
+            export_augmentation:    optional key/value from <record-export-*> — applied per format
+            xml_*:                  only for format xml — see _save_xml
         """
         output_path = Path(path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         fmt = format.lower().strip()
+        xa = dict(export_augmentation or {})
+        if fmt == "xml":
+            if xml_include_root_session_id and "session_id" not in xa:
+                sid = getattr(session, "id", None) if session else None
+                xa["session_id"] = "" if sid is None else str(sid)
+            if xml_include_root_francis_version and "francis_suite_version" not in xa:
+                xa["francis_suite_version"] = FRANCIS_SUITE_VERSION
+            if xml_include_root_exported_at and "exported_at" not in xa:
+                xa["exported_at"] = datetime.now(timezone.utc).isoformat()
 
         if fmt == "json":
-            self._save_json(output_path, include_metadata=include_metadata, session=session)
+            self._save_json(
+                output_path,
+                include_metadata=include_metadata,
+                session=session,
+                export_augmentation=xa,
+            )
         elif fmt == "csv":
-            self._save_csv(output_path, include_metadata=include_metadata)
+            self._save_csv(
+                output_path,
+                include_metadata=include_metadata,
+                export_augmentation=xa,
+            )
         elif fmt == "ndjson":
-            self._save_ndjson(output_path, include_metadata=include_metadata, session=session)
+            self._save_ndjson(
+                output_path,
+                include_metadata=include_metadata,
+                session=session,
+                export_augmentation=xa,
+            )
         elif fmt == "xml":
-            self._save_xml(output_path, include_metadata=include_metadata, session=session)
+            self._save_xml(
+                output_path,
+                include_metadata=include_metadata,
+                session=session,
+                include_root_workflow=xml_include_root_workflow,
+                include_root_total_records=xml_include_root_total_records,
+                include_record_workflow=xml_include_record_workflow,
+                include_record_key=xml_include_record_key,
+                root_extra_attrs=xml_root_extra_attrs or {},
+                record_extra_attrs=xml_record_extra_attrs or {},
+                export_augmentation=xa,
+            )
         elif fmt == "html":
             self._save_html(
                 output_path,
                 include_metadata=include_metadata,
                 session=session,
                 html_title=html_title,
+                export_augmentation=xa,
             )
         elif fmt == "txt":
-            self._save_txt(output_path, include_metadata=include_metadata)
+            self._save_txt(
+                output_path,
+                include_metadata=include_metadata,
+                export_augmentation=xa,
+            )
         elif fmt in ("excel", "xlsx"):
             self._save_excel(
                 output_path,
@@ -738,9 +789,10 @@ class FRecord(FVariable):
                 session=session,
                 sheet_name=sheet_name,
                 metadata_sheet_name=metadata_sheet_name,
+                export_augmentation=xa,
             )
         elif fmt == "parquet":
-            self._save_parquet(output_path)
+            self._save_parquet(output_path, export_augmentation=xa)
         else:
             raise ValueError(
                 f"[RECORD] unsupported format '{format}'. "
@@ -764,21 +816,43 @@ class FRecord(FVariable):
 
         print(f"[RECORD] saved metadata to '{output_path}'")
 
-    def _save_json(self, path: Path, include_metadata: bool = False, session=None) -> None:
+    def _save_json(
+        self,
+        path: Path,
+        include_metadata: bool = False,
+        session=None,
+        export_augmentation: dict[str, str] | None = None,
+    ) -> None:
+        xa = export_augmentation or {}
         if include_metadata:
             public_meta = self.build_public_metadata(session)
-            output = {
+            output: dict | list = {
                 "_metadata": public_meta or {},
                 "data": self._rows,
             }
+            if xa:
+                output["_export"] = xa
+        elif xa:
+            output = {"_export": xa, "data": self._rows}
         else:
             output = self._rows
 
         with open(path, "w", encoding="utf-8") as f:
             json.dump(output, f, ensure_ascii=False, indent=2, default=str)
 
-    def _save_ndjson(self, path: Path, include_metadata: bool = False, session=None) -> None:
+    def _save_ndjson(
+        self,
+        path: Path,
+        include_metadata: bool = False,
+        session=None,
+        export_augmentation: dict[str, str] | None = None,
+    ) -> None:
+        xa = export_augmentation or {}
         with open(path, "w", encoding="utf-8") as f:
+            if xa:
+                f.write(
+                    json.dumps({"_type": "export", **xa}, ensure_ascii=False, default=str) + "\n"
+                )
             if include_metadata:
                 public_meta = self.build_public_metadata(session)
                 if public_meta:
@@ -786,7 +860,12 @@ class FRecord(FVariable):
             for row in self._rows:
                 f.write(json.dumps(row, ensure_ascii=False, default=str) + "\n")
 
-    def _save_csv(self, path: Path, include_metadata: bool = False) -> None:
+    def _save_csv(
+        self,
+        path: Path,
+        include_metadata: bool = False,
+        export_augmentation: dict[str, str] | None = None,
+    ) -> None:
         if not self._rows:
             return
 
@@ -798,12 +877,14 @@ class FRecord(FVariable):
                 if key not in keys:
                     keys.append(key)
 
+        xa = export_augmentation or {}
         with open(path, "w", encoding="utf-8", newline="") as f:
             if include_metadata and self._schema.has_public_metadata:
-                # write metadata as comments at the top
                 for field in self._schema.public_metadata_fields:
                     value = field["value"] or ""
                     f.write(f"# {field['name']}: {value}\n")
+            for ek, ev in xa.items():
+                f.write(f"# {ek}: {ev}\n")
 
             writer = csv.DictWriter(f, fieldnames=keys, extrasaction="ignore")
             writer.writeheader()
@@ -820,13 +901,22 @@ class FRecord(FVariable):
         *,
         include_metadata: bool = False,
         session=None,
+        include_root_workflow: bool = True,
+        include_root_total_records: bool = True,
+        include_record_workflow: bool = True,
+        include_record_key: bool = True,
+        root_extra_attrs: dict[str, str] | None = None,
+        record_extra_attrs: dict[str, str] | None = None,
+        export_augmentation: dict[str, str] | None = None,
     ) -> None:
         wf = self._workflow_name(session)
-        root = etree.Element(
-            "Records",
-            workflow=wf,
-            total_records=str(len(self._rows)),
-        )
+        root_attrs: dict[str, str] = dict(export_augmentation or {})
+        root_attrs.update(dict(root_extra_attrs or {}))
+        if include_root_workflow:
+            root_attrs["workflow"] = wf
+        if include_root_total_records:
+            root_attrs["total_records"] = str(len(self._rows))
+        root = etree.Element("Records", attrib=root_attrs)
 
         if include_metadata and self._schema.has_public_metadata:
             public_meta = self.build_public_metadata(session)
@@ -837,8 +927,10 @@ class FRecord(FVariable):
                     fe.text = "" if v is None else str(v)
 
         for row in self._rows:
-            attrs: dict[str, str] = {"workflow": wf}
-            if self._schema.record_key_keys:
+            attrs: dict[str, str] = dict(record_extra_attrs or {})
+            if include_record_workflow:
+                attrs["workflow"] = wf
+            if self._schema.record_key_keys and include_record_key:
                 attrs["recordKey"] = self._make_record_key_hash(row)
             rec_el = etree.SubElement(root, "record", attrib=attrs)
             for gk, gv in row.items():
@@ -859,6 +951,7 @@ class FRecord(FVariable):
         include_metadata: bool = False,
         session=None,
         html_title: str | None = None,
+        export_augmentation: dict[str, str] | None = None,
     ) -> None:
         if not self._rows:
             return
@@ -872,6 +965,7 @@ class FRecord(FVariable):
 
         title = (html_title or "").strip() or self._workflow_name(session) or "Records"
         title_esc = html_module.escape(title)
+        xa = export_augmentation or {}
 
         parts: list[str] = [
             "<!DOCTYPE html>",
@@ -884,6 +978,18 @@ class FRecord(FVariable):
             "<body>",
             f"<h1>{title_esc}</h1>",
         ]
+
+        if xa:
+            parts.append('<section class="francis-export"><h2>Export</h2><table>')
+            for ek, ev in xa.items():
+                parts.append(
+                    "<tr><td>"
+                    + html_module.escape(str(ek))
+                    + "</td><td>"
+                    + html_module.escape(str(ev))
+                    + "</td></tr>"
+                )
+            parts.append("</table></section>")
 
         if include_metadata and self._schema.has_public_metadata:
             public_meta = self.build_public_metadata(session)
@@ -913,7 +1019,13 @@ class FRecord(FVariable):
 
         path.write_text("\n".join(parts), encoding="utf-8")
 
-    def _save_txt(self, path: Path, *, include_metadata: bool = False) -> None:
+    def _save_txt(
+        self,
+        path: Path,
+        *,
+        include_metadata: bool = False,
+        export_augmentation: dict[str, str] | None = None,
+    ) -> None:
         if not self._rows:
             return
 
@@ -924,11 +1036,14 @@ class FRecord(FVariable):
                 if key not in keys:
                     keys.append(key)
 
+        xa = export_augmentation or {}
         lines: list[str] = []
         if include_metadata and self._schema.has_public_metadata:
             for field in self._schema.public_metadata_fields:
                 value = field["value"] or ""
                 lines.append(f"# {field['name']}: {value}")
+        for ek, ev in xa.items():
+            lines.append(f"# {ek}: {ev}")
 
         lines.append("\t".join(keys))
         for row in flat_rows:
@@ -944,6 +1059,7 @@ class FRecord(FVariable):
         session=None,
         sheet_name: str = "Data",
         metadata_sheet_name: str = "Metadata",
+        export_augmentation: dict[str, str] | None = None,
     ) -> None:
         if not self._rows:
             return
@@ -966,6 +1082,7 @@ class FRecord(FVariable):
         for row in flat_rows:
             ws.append([row.get(k, "") for k in keys])
 
+        xa = export_augmentation or {}
         if include_metadata and self._schema.has_public_metadata:
             public_meta = self.build_public_metadata(session)
             if public_meta:
@@ -973,10 +1090,15 @@ class FRecord(FVariable):
                 ms.append(["name", "value"])
                 for k, v in public_meta.items():
                     ms.append([k, "" if v is None else v])
+        if xa:
+            ex = wb.create_sheet("Export"[:31])
+            ex.append(["name", "value"])
+            for k, v in xa.items():
+                ex.append([k, "" if v is None else str(v)])
 
         wb.save(path)
 
-    def _save_parquet(self, path: Path) -> None:
+    def _save_parquet(self, path: Path, export_augmentation: dict[str, str] | None = None) -> None:
         if not self._rows:
             return
 
@@ -985,6 +1107,12 @@ class FRecord(FVariable):
 
         flat_rows = [self._flatten(row) for row in self._rows]
         table = pa.Table.from_pylist(flat_rows)
+        xa = export_augmentation or {}
+        if xa:
+            meta_json = json.dumps(xa, ensure_ascii=False, default=str)
+            existing = table.schema.metadata or {}
+            merged = {**existing, b"francis_export": meta_json.encode("utf-8")}
+            table = table.replace_schema_metadata(merged)
         pq.write_table(table, path, compression="snappy")
 
     def _flatten(self, obj: dict, prefix: str = "") -> dict:

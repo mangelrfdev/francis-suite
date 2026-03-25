@@ -4,6 +4,8 @@ tests/test_pipeline.py
 End-to-end test of the full execution pipeline.
 Tests that a workflow XML can be parsed and executed correctly.
 """
+import json
+
 import respx
 import httpx
 from francis_suite.core.parser import FParser
@@ -2753,6 +2755,122 @@ def test_record_save_xml(tmp_path):
     text = output.read_text(encoding="utf-8")
     assert "Records" in text
     assert "Casa" in text
+
+
+def test_record_save_xml_root_attrs_optional(tmp_path):
+    """record-save xml: optional root/record attrs, extras, total_records from row count."""
+    output = tmp_path / "out.xml"
+
+    xml = f"""
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">Casa</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-save from="testRecords" format="xml" path="{output.as_posix()}"
+                     xml-include-root-workflow="false"
+                     xml-include-record-workflow="false"
+                     xml-include-record-key="false">
+            <xml-root-attr name="client">acme</xml-root-attr>
+            <xml-record-attr name="source">scraping</xml-record-attr>
+        </record-save>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-xml-attrs")
+
+    assert session.status == SessionStatus.COMPLETED
+    text = output.read_text(encoding="utf-8")
+    assert 'total_records="1"' in text
+    assert 'client="acme"' in text
+    assert 'source="scraping"' in text
+    assert 'workflow="' not in text
+    assert "recordKey" not in text
+
+
+def test_record_save_xml_built_in_root_attrs(tmp_path):
+    """record-save xml: xml-root-system enables session_id, francis_suite_version, exported_at from code."""
+    output = tmp_path / "sys.xml"
+
+    xml = f"""
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">X</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-save from="testRecords" format="xml" path="{output.as_posix()}"
+                     xml-include-root-workflow="false"
+                     xml-include-root-total-records="false">
+            <xml-root-system name="session_id"/>
+            <xml-root-system name="francis_suite_version"/>
+            <xml-root-system name="exported_at"/>
+        </record-save>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-xml-sys-attrs")
+
+    assert session.status == SessionStatus.COMPLETED
+    text = output.read_text(encoding="utf-8")
+    assert "session_id=" in text
+    assert "francis_suite_version=" in text
+    assert "exported_at=" in text
+    assert "total_records=" not in text
+
+
+def test_record_save_json_export_children(tmp_path):
+    """record-save json: record-export-attr and record-export-system embed _export (any format)."""
+    output = tmp_path / "exp.json"
+
+    xml = f"""
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">X</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-save from="testRecords" format="json" path="{output.as_posix()}">
+            <record-export-attr name="client">acme</record-export-attr>
+            <record-export-system name="francis_suite_version"/>
+        </record-save>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-json-export-children")
+
+    assert session.status == SessionStatus.COMPLETED
+    data = json.loads(output.read_text(encoding="utf-8"))
+    assert data["_export"]["client"] == "acme"
+    assert "francis_suite_version" in data["_export"]
+    assert len(data["data"]) == 1
 
 
 def test_record_save_html(tmp_path):

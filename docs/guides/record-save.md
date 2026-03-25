@@ -21,7 +21,12 @@ Declarás **pares clave/valor** (y valores de sistema) **una vez**, como **hijos
 
 **Alias legacy (misma semántica):** `<xml-root-attr>`, `<xml-root-system>` bajo `<record-create>`. El prefijo “xml” es histórico; **no** están limitados a `format="xml"`.
 
-**Solo en `<record-save>` (serialización XML):** `<xml-record-attr>` — atributos extra en cada `<record>` (solo aplica a `format="xml"`).
+**Solo XML (no se mezclan con JSON/CSV/NDJSON):** bajo `<record-create>`,
+
+- `<record-xml-root-attr name="..." required="false">valor</record-xml-root-attr>` — atributos en `<Records>` (independientes del contenido de cada fila).
+- `<record-xml-record-attr name="..." from-field="book.record_key" required="false"/>` — atributo en **cada** `<record>` con valor tomado del campo aplanado (misma notación que el schema). Sin `from-field`, el cuerpo del tag es un valor **estático** repetido en todas las filas. `required` por atributo: si se omite, equivale a `false`; si es `true` y el valor queda vacío al guardar, falla la sesión.
+
+**Solo en `<record-save>` (serialización XML):** `<xml-record-attr>` — atributos estáticos extra en cada `<record>` (se fusionan al final; solo `format="xml"`).
 
 Los flags booleanos en `record-save` (`xml-include-root-session-id`, etc.) **suman** a lo declarado en el record; si ya fijaste una clave en `record-export-attr`, **no** la sobrescribe el integrado.
 
@@ -63,6 +68,8 @@ francis-suite run examples/books_all_pages.xml
 ```
 
 En el workflow: `<record-create name="booksRecords">` incluye los hijos `record-export-*` una vez; grupo `book` (`record_key`, `titulo`, `precio`); en el loop, `record_key` = `book-${contador}`; al final, ocho `<record-save>` mínimos (solo `format` y `path`) al mismo `from="booksRecords"`.
+
+El ejemplo añade **`record-xml-root-attr`** / **`record-xml-record-attr`** (solo afectan a `output/books.xml`): p. ej. `dataset` en la raíz e `id` por fila desde `book.record_key`. **`examples/all_books_pages.xml`** declara además `url` en cada `<record>` desde `book.url_libro` (`required` omitido → `false`).
 
 El listado plano **`output/todos_los_libros.txt`** sigue generándose como antes (misma corrida, otro consumo).
 
@@ -121,14 +128,16 @@ Raíz `<Records>` y un `<record>` por fila. Atributos **integrados** (todos se p
 | `exported_at` | `<Records>` | Marca UTC ISO al guardar el archivo | **record-create:** `<record-export-system name="exported_at"/>`. **record-save:** `xml-include-root-exported-at` |
 | `recordKey` | `<record>` | Si hay `<record-key>` — hash SHA-256 | `xml-include-record-key` en **record-save** (default true) |
 
-**Custom:** `<record-export-attr>` bajo **record-create** (o alias `<xml-root-attr>`). Los atributos integrados de la tabla se aplican al serializar; si chocan el nombre con un `record-export-attr`, **no** sobrescribe el valor declarado en create.
+**Custom (multi-formato):** `<record-export-attr>` bajo **record-create** (o alias `<xml-root-attr>`). Los atributos integrados de la tabla se aplican al serializar; si chocan el nombre con un `record-export-attr`, **no** sobrescribe el valor declarado en create.
 
-Ejemplo (mismos datos, dos filas ficticias):
+**Solo XML:** `<record-xml-root-attr>` y `<record-xml-record-attr>` (ver sección «Metadatos de exportación» arriba) — atributos en la raíz y en cada `<record>` **independientes** del contenido anidado (`<book>`, etc.).
+
+Ejemplo (mismos datos, dos filas ficticias; con `record-xml-*` como en `books_all_pages.xml`):
 
 ```xml
 <?xml version='1.0' encoding='UTF-8'?>
-<Records workflow="books_all_pages" total_records="2">
-  <record workflow="books_all_pages" recordKey="…">
+<Records dataset="books_catalog" workflow="books_all_pages" total_records="2">
+  <record workflow="books_all_pages" recordKey="…" id="book-1">
     <book>
       <record_key>book-1</record_key>
       <titulo>A Light in the ...</titulo>
@@ -185,7 +194,7 @@ Columnas aplanadas; metadata de exportación en el esquema de tabla (`francis_ex
 <record-save from="booksRecords" format="parquet"  path="output/books.parquet"/>
 ```
 
-`examples/books_all_pages.xml` declara `record-export-*` dentro de `<record-create>`; `examples/all_books_pages.xml` añade `case_key` con `${case_key}` en un `record-export-attr` (ver «Metadatos de exportación» arriba).
+`examples/books_all_pages.xml` declara `record-export-*` y `record-xml-*` dentro de `<record-create>`. `examples/all_books_pages.xml` añade `case_key` con `${case_key}` en `record-export-attr` y `record-xml-record-attr` para `id` / `url` (ver «Metadatos de exportación» arriba).
 
 `path` puede usar `${variables}` si resolvés rutas por entorno o parámetros.
 
@@ -198,7 +207,7 @@ Columnas aplanadas; metadata de exportación en el esquema de tabla (`francis_ex
 | `json` | Lista de objetos o envoltorio con `data` / `_metadata` / `_export` según flags; ver sección «Metadatos de exportación» arriba. |
 | `csv` | Filas aplanadas con claves por punto; metadata pública y claves de exportación como líneas `# name: value` al inicio si aplica. |
 | `ndjson` | Primera línea opcional `export` o `metadata`, luego una línea JSON por fila. |
-| `xml` | Raíz `<Records workflow="…" total_records="…">`, un `<record>` por fila; anidación según grupos del schema. Si hay `<record-key>`, atributo `recordKey` = hash SHA-256 completo. |
+| `xml` | Raíz `<Records …>`, un `<record>` por fila; attrs declarativos con `record-xml-root-attr` / `record-xml-record-attr` (solo XML). Si hay `<record-key>`, atributo `recordKey` = hash SHA-256 completo. |
 | `html` | Página HTML con tabla (columnas = filas aplanadas); secciones opcionales Export y metadata pública. |
 | `txt` | Texto **TSV** (tab-separated): cabecera + filas; líneas `#` de metadata y/o exportación si aplica. |
 | `excel` / `xlsx` | Libro Excel (openpyxl); hoja de datos; hojas opcionales Metadata y Export. |

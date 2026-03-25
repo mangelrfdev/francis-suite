@@ -56,6 +56,51 @@ def _build_export_augmentation(
     return xa
 
 
+def _resolve_xml_schema_for_save(
+    record: FRecord,
+    engine: FrancisExpression,
+) -> tuple[dict[str, str], list[dict]]:
+    """Resolve record-xml-root-attr and record-xml-record-attr for format xml."""
+    schema = record._schema
+    xml_root: dict[str, str] = {}
+    for spec in schema.xml_root_attr_specs:
+        k = engine.resolve(spec.name_raw)
+        v = engine.resolve(spec.value_raw or "")
+        if spec.required and not str(v).strip():
+            raise ValueError(
+                f"[RECORD] required XML root attribute '{k}' is empty at save time"
+            )
+        xml_root[k] = v
+
+    xml_record: list[dict] = []
+    for spec in schema.xml_record_attr_specs:
+        an = engine.resolve(spec.name_raw)
+        if spec.from_field:
+            xml_record.append(
+                {
+                    "name": an,
+                    "from_field": spec.from_field,
+                    "static": None,
+                    "required": spec.required,
+                }
+            )
+        else:
+            sv = engine.resolve(spec.value_raw or "")
+            if spec.required and not str(sv).strip():
+                raise ValueError(
+                    f"[RECORD] required XML <record> attribute '{an}' has empty static value at save time"
+                )
+            xml_record.append(
+                {
+                    "name": an,
+                    "from_field": None,
+                    "static": sv,
+                    "required": spec.required,
+                }
+            )
+    return xml_root, xml_record
+
+
 @hand(tag="record-save")
 class RecordSaveHand(AbstractHand):
     """
@@ -150,6 +195,11 @@ class RecordSaveHand(AbstractHand):
         want_version = record._schema.export_want_francis_version or _flag_xml("xml-include-root-francis-version", False)
         want_exported = record._schema.export_want_exported_at or _flag_xml("xml-include-root-exported-at", False)
 
+        xml_only_root_attrs: dict[str, str] | None = None
+        xml_record_specs: list[dict] | None = None
+        if fmt_l == "xml":
+            xml_only_root_attrs, xml_record_specs = _resolve_xml_schema_for_save(record, engine)
+
         record.save(
             fmt,
             path,
@@ -168,5 +218,7 @@ class RecordSaveHand(AbstractHand):
             xml_include_record_key=_flag_xml("xml-include-record-key", True),
             xml_root_extra_attrs={},
             xml_record_extra_attrs=xml_record_extra,
+            xml_only_root_attrs=xml_only_root_attrs,
+            xml_record_attr_specs_resolved=xml_record_specs,
         )
         return FEmptyVariable()

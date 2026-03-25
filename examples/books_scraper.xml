@@ -1,6 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <francis-workflow>
 
+    <!--
+        Minimal demo: one page, loop + log. No FRecord.
+        Full pipeline (pagination, record-create, record-export-*, record-xml-*, eight record-save):
+        examples/books_all_pages.xml — advanced: examples/all_books_pages.xml (record-key, metadata).
+        Docs: docs/guides/record-save.md
+    -->
+
     <!-- 1. Fetch página principal -->
     <box-def name="html">
         <httpx-call url="http://books.toscrape.com"/>

@@ -9,7 +9,7 @@ Low-code, declarativo, extensible, cloud-ready.
 
 - [x] RecordKey — identificador único por record para evitar duplicados
 - [x] Formatos adicionales de record-save — xml, html, txt (TSV), excel/xlsx, parquet — ver [guides/record-save.md](guides/record-save.md)
-- [x] Documentación + ejemplo `examples/books_all_pages.xml` exportando los ocho formatos
+- [x] Documentación + ejemplos `books_all_pages.xml` / `all_books_pages.xml` (export + attrs XML-only `record-xml-*`)
 - [x] Liveness en motor — `session-deadline-ms`, `silence-limit-ms`, `session-max-rss-mb`, `session-rss-warn-mb` (opcional), `<session-pulse/>`, pulso automático por hand — ver [Liveness, límites y operación](#liveness-operacion)
 - [x] `set-proxy` (httpx) — `local`, `manual`, `file`, `api`; sesión con proxy + última respuesta; `httpx-last-status` / `httpx-get-headers` / `httpx-get-cookies`; `item` en `box-def` y `shared-box-def` — ver [ADR-004](decisions/ADR-004-set-proxy-design.md) (`type="db"` pendiente)
 
@@ -101,7 +101,7 @@ record-add con key duplicado → skip con log:
 
 Incluye: `xml`, `html`, `txt` (tab-separated), `excel` / `xlsx`, `parquet` (además de json, csv, ndjson).
 
-**Metadatos de exportación unificados:** declarados en `<record-create>` (`<record-export-attr>` / `<record-export-system>`, alias `<xml-root-*>`); cada `<record-save>` solo elige formato; tabla por destino en [guides/record-save.md](guides/record-save.md).
+**Metadatos de exportación unificados:** declarados en `<record-create>` (`<record-export-attr>` / `<record-export-system>`, alias `<xml-root-*>`); **attrs solo XML:** `<record-xml-root-attr>` / `<record-xml-record-attr>`; cada `<record-save>` solo elige formato; [guides/record-save.md](guides/record-save.md).
 
 **Evolutivo / diseño avanzado** (`metadata-placement`, plantillas txt libres, etc.): [guides/record-save-formats.md](guides/record-save-formats.md).
 
@@ -344,5 +344,5 @@ El workflow declarativo de Francis Suite es **solo XML**. No hay plan de `FYamlP
 - [x] ADR-002 — formatos HTTP
 - [x] ADR-003 — debug, observabilidad, plugin VSCode
 - [x] ADR-004 — diseño `set-proxy` (documentado; código pendiente)
-- [x] 125 tests pasando (`pytest tests/`)
-- [x] Ejemplo `books_all_pages.xml` — scrape paginado del sitio demo books.toscrape.com + exports `output/books.*`
+- [x] Suite `pytest tests/test_pipeline.py` — ver CI / local
+- [x] Ejemplos `books_all_pages.xml` / `all_books_pages.xml` — books.toscrape.com + ocho formatos + `record-xml-*` en XML

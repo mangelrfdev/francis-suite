@@ -2871,6 +2871,112 @@ def test_record_save_json_export_from_record_create(tmp_path):
     assert len(data["data"]) == 1
 
 
+def test_record_xml_record_attr_from_field(tmp_path):
+    """record-xml-record-attr from-field: per-row value on <record>, independent of <Records> root."""
+    output = tmp_path / "out.xml"
+
+    xml = f"""
+    <francis-workflow>
+        <record-create name="r">
+            <record-xml-record-attr name="id" from-field="item.record_key" required="true"/>
+            <record-set-group name="item" required="true">
+                <record-set-field name="record_key" type="string" required="true"/>
+                <record-set-field name="nombre" type="string" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="r">
+            <record-add-group name="item">
+                <record-add-field name="record_key">book-1</record-add-field>
+                <record-add-field name="nombre">A</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-save from="r" format="xml" path="{output.as_posix()}"
+                     xml-include-root-workflow="false"
+                     xml-include-record-workflow="false"
+                     xml-include-record-key="false"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-xml-record-attr")
+
+    assert session.status == SessionStatus.COMPLETED
+    text = output.read_text(encoding="utf-8")
+    assert 'id="book-1"' in text
+
+
+def test_record_xml_only_root_not_in_json(tmp_path):
+    """record-xml-root-attr applies only to XML; JSON export does not include that key."""
+    out_xml = tmp_path / "a.xml"
+    out_json = tmp_path / "a.json"
+
+    xml = f"""
+    <francis-workflow>
+        <record-create name="r">
+            <record-xml-root-attr name="label">root-xml-only</record-xml-root-attr>
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="r">
+            <record-add-group name="item">
+                <record-add-field name="nombre">X</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-save from="r" format="xml" path="{out_xml.as_posix()}"
+                     xml-include-root-workflow="false"
+                     xml-include-root-total-records="false"/>
+        <record-save from="r" format="json" path="{out_json.as_posix()}"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-xml-only-root")
+
+    assert session.status == SessionStatus.COMPLETED
+    assert 'label="root-xml-only"' in out_xml.read_text(encoding="utf-8")
+    j = json.loads(out_json.read_text(encoding="utf-8"))
+    assert "label" not in json.dumps(j)
+
+
+def test_record_xml_required_record_attr_empty_fails(tmp_path):
+    """required record-xml-record-attr with empty from-field value fails at save."""
+    output = tmp_path / "x.xml"
+
+    xml = f"""
+    <francis-workflow>
+        <record-create name="r">
+            <record-xml-record-attr name="id" from-field="item.tag" required="true"/>
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string" required="true"/>
+                <record-set-field name="tag" type="string" required="false"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="r">
+            <record-add-group name="item">
+                <record-add-field name="nombre">A</record-add-field>
+                <record-add-field name="tag"></record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-save from="r" format="xml" path="{output.as_posix()}"
+                     xml-include-root-workflow="false"
+                     xml-include-record-workflow="false"
+                     xml-include-record-key="false"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-xml-req-empty")
+
+    assert session.status == SessionStatus.FAILED
+
+
 def test_record_save_html(tmp_path):
     """record-save should save record as HTML table."""
     output = tmp_path / "test.html"

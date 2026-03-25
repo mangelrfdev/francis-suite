@@ -179,7 +179,7 @@ Cuando haga falta profundidad, priorizar:
 
 **Tests:** `tests/test_pipeline.py`.
 
-**Según contexto:** `examples/books_all_pages.xml`, `francis_suite/cli.py`.
+**Según contexto:** `examples/books_all_pages.xml`, `examples/all_books_pages.xml`, `francis_suite/cli.py`.
 
 Roadmap y pendientes detallados: **`docs/roadmap.md`** (no duplicar aquí; evita desactualizar).
 

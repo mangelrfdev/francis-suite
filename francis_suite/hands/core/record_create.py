@@ -43,7 +43,14 @@ from collections import defaultdict
 
 from francis_suite.core.registry import hand
 from francis_suite.core.variables import FVariable, FEmptyVariable
-from francis_suite.core.records import FRecord, FRecordSchema, FRecordGroup, FRecordField
+from francis_suite.core.records import (
+    FRecord,
+    FRecordSchema,
+    FRecordGroup,
+    FRecordField,
+    XmlRecordAttrSpec,
+    XmlRootAttrSpec,
+)
 from francis_suite.core.expressions import FrancisExpression
 from francis_suite.hands.base import AbstractHand
 
@@ -77,6 +84,12 @@ class RecordCreateHand(AbstractHand):
         <record-export-system name="francis_suite_version"/> — framework version string
         <record-export-system name="exported_at"/> — UTC ISO timestamp at save time
         Legacy aliases: <xml-root-attr>, <xml-root-system> (same semantics; name is historical)
+
+        XML-only (format xml — not mixed into json/csv export):
+        <record-xml-root-attr name="..." required="false">value</record-xml-root-attr> — attributes on <Records>
+        <record-xml-record-attr name="..." from-field="group.field" required="false"/> — per-row on <record>
+        <record-xml-record-attr name="...">static</record-xml-record-attr> — same value on every <record>
+        required defaults to false when omitted.
 
     Notes:
         - <record-metadata> and <record-set-group> can appear in any order
@@ -173,6 +186,34 @@ class RecordCreateHand(AbstractHand):
             _mark_export_system(child.require_attr("name"))
         for child in by_tag["xml-root-system"]:
             _mark_export_system(child.require_attr("name"))
+
+        for child in by_tag["record-xml-root-attr"]:
+            req = child.get_attr("required", "false").lower() in ("true", "1", "yes")
+            schema.xml_root_attr_specs.append(
+                XmlRootAttrSpec(
+                    name_raw=child.require_attr("name"),
+                    value_raw=child.text or "",
+                    required=req,
+                )
+            )
+
+        for child in by_tag["record-xml-record-attr"]:
+            req = child.get_attr("required", "false").lower() in ("true", "1", "yes")
+            ff_raw = child.get_attr("from-field", "").strip() or None
+            canonical_ff = schema.resolve_flat_field_path(ff_raw) if ff_raw else None
+            body = child.text or ""
+            if req and not canonical_ff and not body.strip():
+                raise ValueError(
+                    "[RECORD] record-xml-record-attr: use from-field or a non-empty body when required=true"
+                )
+            schema.xml_record_attr_specs.append(
+                XmlRecordAttrSpec(
+                    name_raw=child.require_attr("name"),
+                    value_raw=body,
+                    from_field=canonical_ff,
+                    required=req,
+                )
+            )
 
         record = FRecord(schema=schema)
         self.context.set_shared_box(name, record)

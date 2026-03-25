@@ -32,10 +32,30 @@ import socket
 import platform
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 from datetime import datetime, timezone
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from lxml import etree
 from francis_suite.core.base import FVariable
+
+
+@dataclass
+class XmlRootAttrSpec:
+    """XML-only attribute on <Records> — declared in record-create (not cross-format export)."""
+
+    name_raw: str
+    value_raw: str
+    required: bool = False
+
+
+@dataclass
+class XmlRecordAttrSpec:
+    """XML-only attribute on each <record> — static or from a flattened row field."""
+
+    name_raw: str
+    value_raw: str
+    from_field: str | None
+    required: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -355,6 +375,10 @@ class FRecordSchema:
         self.export_want_francis_version: bool = False
         self.export_want_exported_at: bool = False
 
+        # XML-only (format xml) — independent attrs on <Records> / <record> vs row data inside
+        self.xml_root_attr_specs: list[XmlRootAttrSpec] = []
+        self.xml_record_attr_specs: list[XmlRecordAttrSpec] = []
+
     def add_group(self, group: FRecordGroup) -> None:
         self.groups[group.name] = group
 
@@ -417,6 +441,34 @@ class FRecordSchema:
             )
         raise ValueError(
             f"[RECORD] key-field '{spec}' is ambiguous — use 'group.field' "
+            f"(matches: {', '.join(matches)})"
+        )
+
+    def resolve_flat_field_path(self, bare_or_qualified: str) -> str:
+        """Resolve a field reference to flattened key used by _flatten (e.g. book.record_key)."""
+        s = bare_or_qualified.strip()
+        if not s:
+            raise ValueError("[RECORD] from-field is empty")
+        if "." in s:
+            g, f = s.split(".", 1)
+            g, f = g.strip(), f.strip()
+            if g not in self.groups or f not in self.groups[g].fields:
+                raise ValueError(
+                    f"[RECORD] from-field '{bare_or_qualified}' does not match a declared field"
+                )
+            return f"{g}.{f}"
+        matches: list[str] = []
+        for gname, group in self.groups.items():
+            if s in group.fields:
+                matches.append(f"{gname}.{s}")
+        if len(matches) == 1:
+            return matches[0]
+        if len(matches) == 0:
+            raise ValueError(
+                f"[RECORD] from-field '{bare_or_qualified}' not found — use group.field"
+            )
+        raise ValueError(
+            f"[RECORD] from-field '{bare_or_qualified}' is ambiguous — use group.field "
             f"(matches: {', '.join(matches)})"
         )
 
@@ -713,6 +765,8 @@ class FRecord(FVariable):
         xml_include_record_key: bool = True,
         xml_root_extra_attrs: dict[str, str] | None = None,
         xml_record_extra_attrs: dict[str, str] | None = None,
+        xml_only_root_attrs: dict[str, str] | None = None,
+        xml_record_attr_specs_resolved: list[dict] | None = None,
     ) -> None:
         """
         Persist the record collection to disk.
@@ -726,6 +780,8 @@ class FRecord(FVariable):
             metadata_sheet_name:    excel — second sheet for public metadata (if include_metadata)
             html_title:             html — <title> and main heading (default: workflow name)
             export_augmentation:    optional key/value (from record-create or caller) — applied per format
+            xml_only_root_attrs:    XML-only <Records> attrs from record-xml-root-attr (not JSON/CSV)
+            xml_record_attr_specs_resolved: per-row <record> attr specs (from record-xml-record-attr), pre-resolved
             xml_*:                  only for format xml — see _save_xml
         """
         output_path = Path(path)
@@ -774,6 +830,8 @@ class FRecord(FVariable):
                 root_extra_attrs=xml_root_extra_attrs or {},
                 record_extra_attrs=xml_record_extra_attrs or {},
                 export_augmentation=xa,
+                xml_only_root_attrs=xml_only_root_attrs or {},
+                xml_record_attr_specs_resolved=xml_record_attr_specs_resolved or [],
             )
         elif fmt == "html":
             self._save_html(
@@ -915,9 +973,12 @@ class FRecord(FVariable):
         root_extra_attrs: dict[str, str] | None = None,
         record_extra_attrs: dict[str, str] | None = None,
         export_augmentation: dict[str, str] | None = None,
+        xml_only_root_attrs: dict[str, str] | None = None,
+        xml_record_attr_specs_resolved: list[dict] | None = None,
     ) -> None:
         wf = self._workflow_name(session)
         root_attrs: dict[str, str] = dict(export_augmentation or {})
+        root_attrs.update(dict(xml_only_root_attrs or {}))
         root_attrs.update(dict(root_extra_attrs or {}))
         if include_root_workflow:
             root_attrs["workflow"] = wf
@@ -933,12 +994,27 @@ class FRecord(FVariable):
                     fe = etree.SubElement(meta_el, "field", name=str(k))
                     fe.text = "" if v is None else str(v)
 
+        specs = xml_record_attr_specs_resolved or []
         for row in self._rows:
-            attrs: dict[str, str] = dict(record_extra_attrs or {})
+            flat = self._flatten(row)
+            attrs: dict[str, str] = {}
             if include_record_workflow:
                 attrs["workflow"] = wf
             if self._schema.record_key_keys and include_record_key:
                 attrs["recordKey"] = self._make_record_key_hash(row)
+            for spec in specs:
+                aname = spec["name"]
+                if spec.get("from_field"):
+                    raw = flat.get(spec["from_field"], "")
+                    val = "" if raw is None else str(raw)
+                else:
+                    val = spec.get("static") or ""
+                if spec.get("required") and not str(val).strip():
+                    raise ValueError(
+                        f"[RECORD] required XML <record> attribute '{aname}' is empty for a row"
+                    )
+                attrs[aname] = val
+            attrs.update(dict(record_extra_attrs or {}))
             rec_el = etree.SubElement(root, "record", attrib=attrs)
             for gk, gv in row.items():
                 _append_xml_from_value(rec_el, gk, gv)

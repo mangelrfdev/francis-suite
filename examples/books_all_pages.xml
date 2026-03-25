@@ -8,13 +8,20 @@
     <box-def name="pagina">0</box-def>
     <box-def name="contador">0</box-def>
 
-    <!-- Record: una fila por libro; export-* se aplica a cada record-save (formatos que no lo soportan lo omiten) -->
+    <!--
+        Record: una fila por libro.
+        record-export-* → metadatos en todos los formatos que lo soporten (_export en JSON, etc.).
+        record-xml-* → solo el archivo XML: attrs en <Records> / <record> independientes de <book>...</book>.
+        Ver docs/guides/record-save.md
+    -->
     <record-create name="booksRecords">
         <record-export-attr name="example">books_all_pages</record-export-attr>
         <record-export-attr name="source">books.toscrape.com</record-export-attr>
         <record-export-system name="session_id"/>
         <record-export-system name="exported_at"/>
         <record-export-system name="francis_suite_version"/>
+        <record-xml-root-attr name="dataset">books_catalog</record-xml-root-attr>
+        <record-xml-record-attr name="id" from-field="book.record_key" required="true"/>
         <record-set-group name="book" required="true">
             <record-set-field name="record_key" type="string" required="true"/>
             <record-set-field name="titulo"           type="string" required="true"/>

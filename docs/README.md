@@ -13,7 +13,7 @@
 
 | Guía | Tema |
 |------|------|
-| [record-save.md](guides/record-save.md) | `<record-save>` — todos los formatos, atributos, ejemplo `books_all_pages.xml` |
+| [record-save.md](guides/record-save.md) | `<record-save>` — formatos, `record-export-*`, `record-xml-*`, ejemplos `books_all_pages.xml` / `all_books_pages.xml` |
 | [record-save-formats.md](guides/record-save-formats.md) | Diseño evolutivo (metadata-placement, plantillas, etc.) |
 | [sensitive.md](guides/sensitive.md) | Variables sensibles, masking, `--param` |
 | [httpx-call.md](guides/httpx-call.md) | HTTP: text, binary, stream |

@@ -8,7 +8,8 @@
         - scraper_name — label for metadata exports (can match workflow_key).
         - case_key — optional “case” / client tag; omit <record-metadata> or drop case_key for cleaner rows.
         Session also has workflow_name = file stem (CLI). Metadata below is optional public fields on record-save when include-metadata="true".
-        record-export-* lives under <record-create> once; each <record-save> is only format + path — see docs/guides/record-save.md.
+        record-export-* once per run; record-xml-* only shape the XML file (<Records> / <record> attrs vs <book> data).
+        Each <record-save> is format + path — docs/guides/record-save.md
         Run: uv run francis-suite run examples/all_books_pages.xml
     -->
 
@@ -34,6 +35,9 @@
         <record-export-system name="session_id"/>
         <record-export-system name="exported_at"/>
         <record-export-system name="francis_suite_version"/>
+        <record-xml-root-attr name="dataset">books_catalog_all_pages</record-xml-root-attr>
+        <record-xml-record-attr name="id" from-field="book.record_key" required="true"/>
+        <record-xml-record-attr name="url" from-field="book.url_libro" required="false"/>
         <record-set-group name="book" required="true">
             <!-- workflow_key: same for every row — included in <record-key> with url_libro -->
             <record-set-field name="workflow_key" type="string" required="true"/>

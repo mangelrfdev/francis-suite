@@ -52,6 +52,8 @@ def _apply_system_export(
     record: FRecord,
     session,
     xa: dict[str, str],
+    *,
+    row_count_override: int | None = None,
 ) -> None:
     """Fill xa for known record-export-system names (canonical keys)."""
     key = _normalize_system_name(raw_name)
@@ -63,7 +65,8 @@ def _apply_system_export(
     elif key in ("exported_at", "generated_at"):
         xa["exported_at"] = datetime.now(timezone.utc).isoformat()
     elif key in ("total_records",):
-        xa["total_records"] = str(record.count)
+        n = row_count_override if row_count_override is not None else record.count
+        xa["total_records"] = str(n)
     elif key in ("status_process",):
         if session is None:
             xa["status_process"] = ""
@@ -86,6 +89,8 @@ def _build_export_augmentation(
     engine: FrancisExpression,
     session,
     flag_xml,
+    *,
+    row_count_override: int | None = None,
 ) -> dict[str, str]:
     """Merge export dict from record-create schema + optional xml-include-root-* flags on this save."""
     schema = record._schema
@@ -118,7 +123,13 @@ def _build_export_augmentation(
     for spec in schema.export_system_specs:
         if not should_emit_export_show_attribute(spec.show_attribute, session):
             continue
-        _apply_system_export(spec.name_raw, record, session, xa)
+        _apply_system_export(
+            spec.name_raw,
+            record,
+            session,
+            xa,
+            row_count_override=row_count_override,
+        )
 
     # record-save xml-include-root-* only when record-create did not declare that system field
     if flag_xml("xml-include-root-session-id", False) and "session_id" not in xa:
@@ -224,6 +235,7 @@ class RecordSaveHand(AbstractHand):
         format           (required): json, csv, ndjson, xml, html, txt, excel, xlsx, parquet
         path             (required): output file path. Supports ${variables}.
         include-metadata (optional): include public metadata in output. Default: false.
+            For duplicate-key rows only, use <record-save-duplicates> (no include-metadata="true").
         sheet-name       (optional): excel — main sheet name (default: Data)
         metadata-sheet-name (optional): excel — sheet for public metadata (default: Metadata)
         html-title       (optional): html — page title and main heading (default: workflow name)

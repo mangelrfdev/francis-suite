@@ -81,6 +81,8 @@ francis-suite --help
 francis-suite --version
 ```
 
+**Paths:** Relative paths in workflows (e.g. `output/file.csv`) are resolved against the **process working directory** (where you run the command), not a built-in project root. For production jobs, use absolute paths or inject a base path via `--param` / environment and `${variable}` in XML. Ideas such as CLI `--workspace`, write sandboxing, or split export files are **out of scope for now** — see [docs/roadmap.md — “Analizar en el futuro (no prioritario)”](docs/roadmap.md#analizar-futuro-no-prioridad).
+
 ## Stack
 
 - **Python 3.11+** — core language

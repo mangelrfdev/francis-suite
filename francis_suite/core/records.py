@@ -568,6 +568,7 @@ class FRecord(FVariable):
     def __init__(self, schema: FRecordSchema) -> None:
         self._schema        = schema
         self._rows:         list[dict] = []
+        self._duplicate_rows: list[dict] = []
         self._rows_failed:  int = 0
         self._private_meta: dict = {}
         self._seen_record_key_hashes: set[str] = set()
@@ -600,6 +601,21 @@ class FRecord(FVariable):
         return len(self._rows)
 
     @property
+    def duplicate_count(self) -> int:
+        """Rows skipped because of duplicate <record-key> (subsequent occurrences)."""
+        return len(self._duplicate_rows)
+
+    @property
+    def duplicate_rows(self) -> list[dict]:
+        """Copy of rows that were skipped as duplicate keys (for record-save-duplicates)."""
+        return list(self._duplicate_rows)
+
+    @property
+    def has_record_key(self) -> bool:
+        """True if <record-key> was declared (duplicate detection enabled)."""
+        return bool(self._schema.record_key_keys)
+
+    @property
     def last_row(self) -> dict | None:
         return self._rows[-1] if self._rows else None
 
@@ -615,6 +631,7 @@ class FRecord(FVariable):
             if key_hash in self._seen_record_key_hashes:
                 short = key_hash[:16]
                 print(f"[RECORD] duplicate key — skipping (key: {short})")
+                self._duplicate_rows.append(normalized)
                 return None
             self._seen_record_key_hashes.add(key_hash)
         self._rows.append(normalized)
@@ -950,6 +967,7 @@ class FRecord(FVariable):
         format: str,
         path: str,
         *,
+        data_rows: list[dict] | None = None,
         include_metadata: bool = False,
         session=None,
         sheet_name: str = "Data",
@@ -973,6 +991,8 @@ class FRecord(FVariable):
         Args:
             format:                 json, csv, ndjson, xml, html, txt, excel, xlsx, parquet
             path:                   output file path
+            data_rows:              if set, serialize these rows instead of primary _rows (duplicate-key
+                                    export via record-save-duplicates). include_metadata must be False.
             include_metadata:       if True, embeds public metadata where the format supports it
             session:                FrancisSession — workflow name and metadata fields
             sheet_name:             excel — main data sheet name
@@ -982,6 +1002,16 @@ class FRecord(FVariable):
             xml_record_attr_specs_resolved: per-row <record> attr specs, pre-resolved
             xml_*:                  only for format xml — see _save_xml
         """
+        if data_rows is not None and include_metadata:
+            raise ValueError(
+                "[RECORD] include-metadata is not supported when saving duplicate-key rows "
+                "(use <record-save> for public metadata; <record-save-duplicates> omits it)."
+            )
+
+        effective_rows = self._rows if data_rows is None else data_rows
+        if not effective_rows:
+            return
+
         output_path = Path(path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -998,9 +1028,12 @@ class FRecord(FVariable):
 
         xa = self._sanitize_export_for_format(fmt, xa)
 
+        dup_suffix = " (duplicate-key rows)" if data_rows is not None else ""
+
         if fmt == "json":
             self._save_json(
                 output_path,
+                effective_rows,
                 include_metadata=include_metadata,
                 session=session,
                 export_augmentation_payload=xa,
@@ -1009,12 +1042,14 @@ class FRecord(FVariable):
         elif fmt == "csv":
             self._save_csv(
                 output_path,
+                effective_rows,
                 include_metadata=include_metadata,
                 export_augmentation=xa,
             )
         elif fmt == "ndjson":
             self._save_ndjson(
                 output_path,
+                effective_rows,
                 include_metadata=include_metadata,
                 session=session,
                 export_augmentation_payload=xa,
@@ -1023,6 +1058,7 @@ class FRecord(FVariable):
         elif fmt == "xml":
             self._save_xml(
                 output_path,
+                effective_rows,
                 include_metadata=include_metadata,
                 session=session,
                 include_root_workflow=xml_include_root_workflow,
@@ -1037,6 +1073,7 @@ class FRecord(FVariable):
         elif fmt == "html":
             self._save_html(
                 output_path,
+                effective_rows,
                 include_metadata=include_metadata,
                 session=session,
                 html_title=html_title,
@@ -1045,12 +1082,14 @@ class FRecord(FVariable):
         elif fmt == "txt":
             self._save_txt(
                 output_path,
+                effective_rows,
                 include_metadata=include_metadata,
                 export_augmentation=xa,
             )
         elif fmt in ("excel", "xlsx"):
             self._save_excel(
                 output_path,
+                effective_rows,
                 include_metadata=include_metadata,
                 session=session,
                 sheet_name=sheet_name,
@@ -1058,14 +1097,16 @@ class FRecord(FVariable):
                 export_augmentation=xa,
             )
         elif fmt == "parquet":
-            self._save_parquet(output_path, export_augmentation=xa)
+            self._save_parquet(output_path, effective_rows, export_augmentation=xa)
         else:
             raise ValueError(
                 f"[RECORD] unsupported format '{format}'. "
                 f"Valid formats: json, csv, ndjson, xml, html, txt, excel, xlsx, parquet"
             )
 
-        print(f"[RECORD] saved {self.count} rows to '{output_path}' as {fmt}")
+        print(
+            f"[RECORD] saved {len(effective_rows)} rows to '{output_path}' as {fmt}{dup_suffix}"
+        )
 
     def save_meta(self, path: str, session=None) -> None:
         """
@@ -1085,6 +1126,7 @@ class FRecord(FVariable):
     def _save_json(
         self,
         path: Path,
+        rows: list[dict],
         include_metadata: bool = False,
         session=None,
         *,
@@ -1096,16 +1138,16 @@ class FRecord(FVariable):
             public_meta = self.build_public_metadata(session)
             output: dict | list = {
                 "_metadata": public_meta or {},
-                "data": self._rows,
+                "data": rows,
             }
             if include_export_wrapper:
                 output["_export"] = xa
             elif xa:
                 output["_export"] = xa
         elif include_export_wrapper:
-            output = {"_export": xa, "data": self._rows}
+            output = {"_export": xa, "data": rows}
         else:
-            output = self._rows
+            output = rows
 
         text = json.dumps(output, ensure_ascii=False, indent=2, default=str)
         write_text_atomic(path, text)
@@ -1113,6 +1155,7 @@ class FRecord(FVariable):
     def _save_ndjson(
         self,
         path: Path,
+        rows: list[dict],
         include_metadata: bool = False,
         session=None,
         *,
@@ -1129,7 +1172,7 @@ class FRecord(FVariable):
             public_meta = self.build_public_metadata(session)
             if public_meta:
                 lines.append(json.dumps({"_type": "metadata", **public_meta}, ensure_ascii=False, default=str))
-        for row in self._rows:
+        for row in rows:
             lines.append(json.dumps(row, ensure_ascii=False, default=str))
         if lines:
             write_text_atomic(path, "\n".join(lines) + "\n")
@@ -1137,13 +1180,14 @@ class FRecord(FVariable):
     def _save_csv(
         self,
         path: Path,
+        rows: list[dict],
         include_metadata: bool = False,
         export_augmentation: dict[str, str] | None = None,
     ) -> None:
-        if not self._rows:
+        if not rows:
             return
 
-        flat_rows = [self._flatten(row) for row in self._rows]
+        flat_rows = [self._flatten(row) for row in rows]
 
         keys: list[str] = []
         for row in flat_rows:
@@ -1173,6 +1217,7 @@ class FRecord(FVariable):
     def _save_xml(
         self,
         path: Path,
+        rows: list[dict],
         *,
         include_metadata: bool = False,
         session=None,
@@ -1191,7 +1236,7 @@ class FRecord(FVariable):
         if include_root_workflow:
             root_attrs["workflow"] = wf
         if include_root_total_records:
-            root_attrs["total_records"] = str(len(self._rows))
+            root_attrs["total_records"] = str(len(rows))
         root = etree.Element("Records", attrib=root_attrs)
 
         if include_metadata and self._schema.has_public_metadata:
@@ -1203,7 +1248,7 @@ class FRecord(FVariable):
                     fe.text = "" if v is None else str(v)
 
         specs = xml_record_attr_specs_resolved or []
-        for row in self._rows:
+        for row in rows:
             flat = self._flatten(row)
             attrs: dict[str, str] = {}
             if include_record_workflow:
@@ -1244,16 +1289,17 @@ class FRecord(FVariable):
     def _save_html(
         self,
         path: Path,
+        rows: list[dict],
         *,
         include_metadata: bool = False,
         session=None,
         html_title: str | None = None,
         export_augmentation: dict[str, str] | None = None,
     ) -> None:
-        if not self._rows:
+        if not rows:
             return
 
-        flat_rows = [self._flatten(row) for row in self._rows]
+        flat_rows = [self._flatten(row) for row in rows]
         keys: list[str] = []
         for row in flat_rows:
             for key in row:
@@ -1319,14 +1365,15 @@ class FRecord(FVariable):
     def _save_txt(
         self,
         path: Path,
+        rows: list[dict],
         *,
         include_metadata: bool = False,
         export_augmentation: dict[str, str] | None = None,
     ) -> None:
-        if not self._rows:
+        if not rows:
             return
 
-        flat_rows = [self._flatten(row) for row in self._rows]
+        flat_rows = [self._flatten(row) for row in rows]
         keys: list[str] = []
         for row in flat_rows:
             for key in row:
@@ -1351,6 +1398,7 @@ class FRecord(FVariable):
     def _save_excel(
         self,
         path: Path,
+        rows: list[dict],
         *,
         include_metadata: bool = False,
         session=None,
@@ -1358,12 +1406,12 @@ class FRecord(FVariable):
         metadata_sheet_name: str = "Metadata",
         export_augmentation: dict[str, str] | None = None,
     ) -> None:
-        if not self._rows:
+        if not rows:
             return
 
         from openpyxl import Workbook
 
-        flat_rows = [self._flatten(row) for row in self._rows]
+        flat_rows = [self._flatten(row) for row in rows]
         keys: list[str] = []
         for row in flat_rows:
             for key in row:
@@ -1397,14 +1445,19 @@ class FRecord(FVariable):
         wb.save(tmp)
         tmp.replace(path)
 
-    def _save_parquet(self, path: Path, export_augmentation: dict[str, str] | None = None) -> None:
-        if not self._rows:
+    def _save_parquet(
+        self,
+        path: Path,
+        rows: list[dict],
+        export_augmentation: dict[str, str] | None = None,
+    ) -> None:
+        if not rows:
             return
 
         import pyarrow as pa
         import pyarrow.parquet as pq
 
-        flat_rows = [self._flatten(row) for row in self._rows]
+        flat_rows = [self._flatten(row) for row in rows]
         table = pa.Table.from_pylist(flat_rows)
         xa = export_augmentation or {}
         if xa:

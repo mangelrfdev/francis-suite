@@ -291,6 +291,7 @@ Files:        file-read, file-write (encoding: utf-8, binary, newline)
 
 Records:      record-create, record-add, record-last-added, record-count
               record-save (json, csv, ndjson, xml, html, txt, excel, parquet)
+              record-save-duplicates (mismos formatos; filas con record-key duplicada; sin include-metadata)
               record-save-metadata (solo metadata privada, sin rows)
               record-private-metadata (agrega metadata en cualquier parte)
 
@@ -363,6 +364,8 @@ francis-suite run workflow.xml --param ciudad=santiago --param paginas=10
 Variables inyectadas con `--param` se guardan como shared-box antes de ejecutar.
 Valores sensibles nunca aparecen en logs del CLI — solo `[PARAMS] Context variables loaded.`
 
+**Rutas:** Los `path` / `to` relativos se interpretan respecto al **cwd** del proceso; no hay raíz Francis fija en el CLI. Temas tipo workspace explícito, sandbox de escritura o recetas cloud están listados como *no prioritarios* en [roadmap.md#analizar-futuro-no-prioridad](roadmap.md#analizar-futuro-no-prioridad).
+
 Referencia de `<record-save>` (todos los formatos, muestras, ejemplo `books_all_pages.xml`): [guides/record-save.md](guides/record-save.md).
 
 ---
@@ -401,6 +404,9 @@ POST /run, GET /status/:id, GET /context/:id, WS /ws/:id.
 
 ### Formato de workflow
 Solo **XML** como lenguaje del workflow. Ver roadmap (YAML como workflow descartado).
+
+### Rutas, workspace y producción (no prioritario)
+Comportamiento actual (cwd, `--param`, composición de paths) y temas sin compromiso (CLI workspace, sandbox, salidas separadas en record-save, ops Docker) — ver [roadmap.md#analizar-futuro-no-prioridad](roadmap.md#analizar-futuro-no-prioridad).
 
 ---
 

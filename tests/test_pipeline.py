@@ -5,10 +5,11 @@ End-to-end test of the full execution pipeline.
 Tests that a workflow XML can be parsed and executed correctly.
 """
 import json
+from pathlib import Path
 
 import respx
 import httpx
-from francis_suite.core.parser import FParser
+from francis_suite.core.parser import FParser, ParseError
 from francis_suite.core.runtime import FRuntime
 from francis_suite.core.session import SessionStatus
 from unittest.mock import patch
@@ -31,6 +32,32 @@ def test_log_hand_executes():
     assert session.status == SessionStatus.COMPLETED
     assert session.duration is not None
     assert session.error is None
+
+
+def test_parser_rejects_empty_attributes():
+    """attr=\"\" is invalid; whitespace-only values are allowed (spacing is ok)."""
+    xml = """
+    <francis-workflow>
+        <log unused="">ok</log>
+    </francis-workflow>
+    """
+    parser = FParser()
+    try:
+        parser.parse_string(xml, source="test-empty-attr.xml")
+    except ParseError as e:
+        assert "unused" in str(e)
+        assert "empty" in str(e).lower()
+    else:
+        raise AssertionError("expected ParseError for empty attribute")
+
+    xml2 = """
+    <francis-workflow>
+        <log spaces="   ">ok</log>
+    </francis-workflow>
+    """
+    root = parser.parse_string(xml2)
+    log_node = root.children[0]
+    assert log_node.attrs.get("spaces") == "   "
 
 
 def test_unknown_tag_fails_session():
@@ -3218,6 +3245,119 @@ def test_record_key_duplicate_skipped():
     assert isinstance(record, FRecord)
     assert record.count == 1
     assert record.last_row["item"]["precio"] == 100
+    assert record.duplicate_count == 1
+    assert record.duplicate_rows[0]["item"]["precio"] == 200
+
+
+def test_record_save_duplicates_ndjson(tmp_path, monkeypatch):
+    """record-save-duplicates writes duplicate-key rows; primary record-save stays unique."""
+    monkeypatch.chdir(tmp_path)
+    out_dup = (tmp_path / "dups.ndjson").as_posix()
+    out_main = (tmp_path / "main.ndjson").as_posix()
+    xml = f"""
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-key>
+                <key-field name="nombre"/>
+            </record-key>
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string" required="true"/>
+                <record-set-field name="precio" type="integer" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">Casa</record-add-field>
+                <record-add-field name="precio">100</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">Casa</record-add-field>
+                <record-add-field name="precio">200</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-save from="testRecords" format="ndjson" path="{out_main}" include-metadata="false"/>
+        <record-save-duplicates from="testRecords" format="ndjson" path="{out_dup}"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-save-dups")
+
+    assert session.status == SessionStatus.COMPLETED
+    main_lines = [
+        json.loads(l) for l in Path(out_main).read_text(encoding="utf-8").strip().splitlines()
+    ]
+    assert len(main_lines) == 1
+    assert main_lines[0]["item"]["precio"] == 100
+    dup_lines = [
+        json.loads(l) for l in Path(out_dup).read_text(encoding="utf-8").strip().splitlines()
+    ]
+    assert len(dup_lines) == 1
+    assert dup_lines[0]["item"]["precio"] == 200
+
+
+def test_record_save_duplicates_requires_record_key(tmp_path, monkeypatch):
+    """record-save-duplicates without <record-key> must fail."""
+    monkeypatch.chdir(tmp_path)
+    p = (tmp_path / "d.ndjson").as_posix()
+    xml = f"""
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">A</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-save-duplicates from="testRecords" format="ndjson" path="{p}"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-save-dups-no-key")
+
+    assert session.status == SessionStatus.FAILED
+
+
+def test_record_save_duplicates_rejects_include_metadata_true(tmp_path, monkeypatch):
+    """include-metadata=\"true\" is not allowed on record-save-duplicates."""
+    monkeypatch.chdir(tmp_path)
+    p = (tmp_path / "d.ndjson").as_posix()
+    xml = f"""
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-key>
+                <key-field name="nombre"/>
+            </record-key>
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">A</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-save-duplicates from="testRecords" format="ndjson" path="{p}"
+            include-metadata="true"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-save-dups-meta")
+
+    assert session.status == SessionStatus.FAILED
 
 
 def test_record_key_two_fields():

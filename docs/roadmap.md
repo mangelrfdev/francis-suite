@@ -38,6 +38,7 @@ Low-code, declarativo, extensible, cloud-ready.
 - **FastAPI** y **`fs` en expresiones:** útiles sobre todo si el plugin o integraciones **online** lo necesitan; para **plugin offline** la prioridad es menor — decidir cuando el plugin tenga recorte claro.
 - **Capa producción** (cron, límites OS, alertas): **documentación / ops** — hay que **pensarlo y hablarlo**; checklist en [Liveness — capa externa](#liveness-operacion).
 - **Guías** (`docs/guides/liveness.md`, guías por hand): **no** bloquean el core; completar según necesidad, no “todas ya”.
+- **Temas pospuestos / sin prioridad ahora** (cwd vs “raíz Francis”, `--workspace`, sandbox de escritura, salidas separadas en record-save, recetas Docker): tabla en [Analizar en el futuro (no prioritario)](#analizar-futuro-no-prioridad).
 
 ---
 
@@ -311,6 +312,26 @@ Prioridad **condicional**: más relevante si el plugin u otras integraciones **o
 
 ### ~~YAML como formato de workflow~~ — descartado
 El workflow declarativo de Francis Suite es **solo XML**. No hay plan de `FYamlParser` ni de sintaxis YAML equivalente al `<francis-workflow>`. (Los ficheros `*.yaml` de **configuración** del producto, p. ej. `francis-config.yaml`, son otro asunto.)
+
+---
+
+<a id="analizar-futuro-no-prioridad"></a>
+
+## Analizar en el futuro (no prioritario)
+
+Temas **aclarados en diseño** pero **sin compromiso de implementación** hasta que el producto lo pida. Sirven para no mezclar “idea de roadmap” con comportamiento actual del motor.
+
+| Tema | Estado hoy | Nota |
+|------|------------|------|
+| **Rutas relativas / cwd** | Las rutas en XML (`path`, `to`, etc.) son relativas al **directorio de trabajo del proceso** (cwd), no a una “raíz Francis” fija. Los ejemplos usan `output/` por convención. | En prod: rutas absolutas o `${param}` / env resueltos por `engine.resolve`. |
+| **CLI `--workspace` / env tipo `FRANCIS_ROOT`** | No implementado. | Si se prioriza: definir semántica (solo rutas del workflow vs también cwd) y documentar. |
+| **Validación unificada de paths** | Cada hand que escribe valida como toca. | Mejora de UX de errores; no bloquea el core. |
+| **Sandbox / allowlist de escritura** (p. ej. solo bajo `output/`) | No hay. | Seguridad hoy por convención y workflows confiables; dry-run sería otro sub-tema. |
+| **Salidas separadas en `record-save`** (duplicados vs fallidos en ficheros distintos) | No implementado. | Patrón de producto a decidir antes de código. |
+| **Composición de rutas en cloud** (`BASE` + `session_id` en `path`) | Coherente con variables y `engine.resolve`. | Recetas en guías cuando haya un ejemplo oficial; no requiere cambio de motor por sí solo. |
+| **Paridad Docker / contenedores** (volúmenes, cwd, usuario) | Documentación de ops cuando haga falta. | Relacionado con [Liveness — capa externa](#liveness-operacion), no con una feature del engine. |
+
+Si algo de esta lista **sube de prioridad**, moverlo a [Prioridad de producto (decisión 2026)](#prioridad-producto-2026) o a un ADR concreto.
 
 ---
 

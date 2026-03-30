@@ -22,6 +22,29 @@ Atributos del tag: `path` (obligatorio; `fsync="true|false"` para `flush` + `fsy
 
 ---
 
+## `<record-save-duplicates>` — filas con clave duplicada
+
+Hand separado de `<record-save>`. Exporta solo las filas que **no** entraron al `FRecord` principal porque **repetían** la misma `<record-key>` que una fila ya aceptada (segunda y siguientes ocurrencias).
+
+| | `<record-save>` | `<record-save-duplicates>` |
+|--|-----------------|----------------------------|
+| Filas exportadas | Únicas por clave (primera ocurrencia) | Duplicados detectados por clave |
+| Requisito | — | Debe existir `<record-key>` en el mismo `<record-create>` |
+| `include-metadata` | Opcional (`true` / `false`) | **No soportado** con valor `true` — la metadata pública de sesión va en `<record-save>` / `<record-save-metadata>` |
+
+Si no hubo duplicados, el hand **no escribe** archivo (mensaje en consola y sesión sigue).
+
+**Ejemplo**
+
+```xml
+<record-save from="booksRecords" format="ndjson" path="output/books.ndjson" include-metadata="false"/>
+<record-save-duplicates from="booksRecords" format="parquet" path="output/books_duplicates.parquet"/>
+```
+
+Los mismos `format` y atributos de serialización que `<record-save>` donde apliquen (p. ej. `sheet-name`, `html-title`, flags `xml-include-*`), excepto `include-metadata="true"`.
+
+---
+
 ## Metadatos de exportación (`record-export-*`)
 
 Declarás **pares clave/valor** (y valores de sistema) **una vez**, como **hijos de `<record-create>`** (junto con grupos, metadata, record-key, etc.). Cada `<record-save>` solo elige `format` y `path`: el mismo record puede volcarse a varios formatos en la misma corrida y los extras se **serializan donde el formato lo permita**; si un formato no tiene canal para eso, **no se escriben** (no hay error; el archivo de datos igual se genera).

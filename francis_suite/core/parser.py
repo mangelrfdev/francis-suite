@@ -64,7 +64,7 @@ class FParser:
         except etree.XMLSyntaxError as e:
             raise ParseError(f"Invalid XML in '{source}': {e}") from e
 
-        root_node = self._element_to_fnode(root_element)
+        root_node = self._element_to_fnode(root_element, source=source)
 
         if root_node.tag != self.ROOT_TAG:
             raise ParseError(
@@ -74,15 +74,48 @@ class FParser:
 
         return root_node
 
-    def _element_to_fnode(self, element: etree._Element) -> FNode:
+    def _attrs_reject_empty(
+        self,
+        raw: dict,
+        *,
+        tag: str,
+        line: int | None,
+        source: str,
+    ) -> dict[str, str]:
+        """
+        Fail if any attribute is present with a zero-length value (attr="").
+
+        Values that are only spaces or other whitespace are allowed: spacing inside
+        the quoted value is valid when the author intends it.
+        """
+        out: dict[str, str] = {}
+        line_hint = f" (line {line})" if line else ""
+        for k, v in raw.items():
+            if v is None:
+                raise ParseError(
+                    f"Attribute '{k}' on <{tag}> has no value in '{source}'{line_hint}. "
+                    f"Remove the attribute or set a value."
+                )
+            sv = str(v)
+            if sv == "":
+                raise ParseError(
+                    f"Attribute '{k}' on <{tag}> cannot use an empty value (attr=\"\") in "
+                    f"'{source}'{line_hint}. Remove the attribute or set a value."
+                )
+            out[k] = sv
+        return out
+
+    def _element_to_fnode(self, element: etree._Element, *, source: str) -> FNode:
         """
         Recursively convert an lxml element to an FNode.
         Strips XML namespace prefixes from tag names.
         """
         tag = self._clean_tag(element.tag)
-        attrs = dict(element.attrib)
-        text = element.text.strip() if element.text and element.text.strip() else None
         line = element.sourceline if hasattr(element, "sourceline") else None
+        attrs = self._attrs_reject_empty(
+            dict(element.attrib), tag=tag, line=line, source=source
+        )
+        text = element.text.strip() if element.text and element.text.strip() else None
 
         node = FNode(
             tag=tag,
@@ -94,7 +127,7 @@ class FParser:
         for child in element:
             if callable(child.tag):  # Ignore Comments and Processing Instructions
                 continue
-            child_node = self._element_to_fnode(child)
+            child_node = self._element_to_fnode(child, source=source)
             node.children.append(child_node)
 
         return node

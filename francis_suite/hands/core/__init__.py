@@ -65,5 +65,6 @@ from francis_suite.hands.core import record_add
 from francis_suite.hands.core import record_last_added
 from francis_suite.hands.core import record_count
 from francis_suite.hands.core import record_save
+from francis_suite.hands.core import record_save_duplicates
 from francis_suite.hands.core import record_save_metadata
 from francis_suite.hands.core import record_private_metadata

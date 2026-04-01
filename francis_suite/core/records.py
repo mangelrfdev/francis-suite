@@ -189,6 +189,8 @@ AUTO_METADATA_FIELDS = {
     "rows_fallidos",
     "campos_nulos_total",
     "porcentaje_completitud",
+    "filas_duplicadas_por_clave",
+    "filas_rechazadas_validacion",
     # performance
     "duracion_segundos",
     "rows_por_segundo",
@@ -457,6 +459,9 @@ class FRecordSchema:
         self.journal_path: str | None = None
         self.journal_fsync: bool = False
 
+        # strict (default): invalid row raises. collect-errors: skip row, record in validation_errors
+        self.record_validation_mode: str = "strict"
+
     def add_group(self, group: FRecordGroup) -> None:
         self.groups[group.name] = group
 
@@ -569,6 +574,7 @@ class FRecord(FVariable):
         self._schema        = schema
         self._rows:         list[dict] = []
         self._duplicate_rows: list[dict] = []
+        self._validation_error_rows: list[dict[str, Any]] = []
         self._rows_failed:  int = 0
         self._private_meta: dict = {}
         self._seen_record_key_hashes: set[str] = set()
@@ -616,16 +622,49 @@ class FRecord(FVariable):
         return bool(self._schema.record_key_keys)
 
     @property
+    def validation_error_count(self) -> int:
+        """Rows rejected by schema validation when record-validation is collect-errors."""
+        return len(self._validation_error_rows)
+
+    @property
+    def validation_error_rows(self) -> list[dict[str, Any]]:
+        """Copy of validation error entries (error message + raw_row from record-add)."""
+        return list(self._validation_error_rows)
+
+    @property
     def last_row(self) -> dict | None:
         return self._rows[-1] if self._rows else None
+
+    def validation_error_export_rows(self) -> list[dict[str, Any]]:
+        """
+        Flat dicts for record-save-validation-errors: validation_error + raw_* field keys.
+        """
+        out: list[dict[str, Any]] = []
+        for entry in self._validation_error_rows:
+            row: dict[str, Any] = {"validation_error": entry["error"]}
+            raw = entry.get("raw_row") or {}
+            for k, v in raw.items():
+                row[f"raw_{k}"] = "" if v is None else str(v)
+            out.append(row)
+        return out
 
     def add_row(self, raw_row: dict, session: Any = None) -> dict | None:
         """
         Normalize and add a row to the collection.
         Returns None if <record-key> is configured and this row duplicates an existing key.
+        Returns None if record-validation is collect-errors and normalization raises (row stored as validation error).
         session: optional — used for journal lines (session id, status, workflow name).
         """
-        normalized = self._schema.normalize_row(raw_row)
+        try:
+            normalized = self._schema.normalize_row(raw_row)
+        except ValueError as e:
+            if self._schema.record_validation_mode == "collect-errors":
+                msg = str(e)
+                self._validation_error_rows.append({"error": msg, "raw_row": dict(raw_row)})
+                short = msg if len(msg) <= 120 else msg[:117] + "..."
+                print(f"[RECORD] validation error — skipping row ({short})")
+                return None
+            raise
         if self._schema.record_key_keys:
             key_hash = self._make_record_key_hash(normalized)
             if key_hash in self._seen_record_key_hashes:
@@ -898,6 +937,8 @@ class FRecord(FVariable):
             "rows_fallidos":           quality["rows_fallidos"],
             "campos_nulos_total":      quality["campos_nulos_total"],
             "porcentaje_completitud":  quality["porcentaje_completitud"],
+            "filas_duplicadas_por_clave":     self.duplicate_count,
+            "filas_rechazadas_validacion":    self.validation_error_count,
 
             # scraping specific — populated by <record-private-metadata>
             "paginas_procesadas":      self._private_meta.get("paginas_procesadas", None),
@@ -1028,7 +1069,16 @@ class FRecord(FVariable):
 
         xa = self._sanitize_export_for_format(fmt, xa)
 
-        dup_suffix = " (duplicate-key rows)" if data_rows is not None else ""
+        if data_rows is None:
+            row_suffix = ""
+        elif (
+            effective_rows
+            and isinstance(effective_rows[0], dict)
+            and "validation_error" in effective_rows[0]
+        ):
+            row_suffix = " (validation-error rows)"
+        else:
+            row_suffix = " (duplicate-key rows)"
 
         if fmt == "json":
             self._save_json(
@@ -1105,7 +1155,7 @@ class FRecord(FVariable):
             )
 
         print(
-            f"[RECORD] saved {len(effective_rows)} rows to '{output_path}' as {fmt}{dup_suffix}"
+            f"[RECORD] saved {len(effective_rows)} rows to '{output_path}' as {fmt}{row_suffix}"
         )
 
     def save_meta(self, path: str, session=None) -> None:

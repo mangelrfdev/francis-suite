@@ -3328,6 +3328,125 @@ def test_record_save_duplicates_requires_record_key(tmp_path, monkeypatch):
     assert session.status == SessionStatus.FAILED
 
 
+def test_record_create_invalid_record_validation():
+    xml = """
+    <francis-workflow>
+        <record-create name="r" record-validation="maybe-later">
+            <record-set-group name="item" required="true">
+                <record-set-field name="n" type="integer" required="true"/>
+            </record-set-group>
+        </record-create>
+    </francis-workflow>
+    """
+    parser = FParser()
+    runtime = FRuntime()
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-bad-val-mode")
+    assert session.status == SessionStatus.FAILED
+
+
+def test_record_validation_strict_invalid_integer_fails():
+    """Default strict mode: invalid integer still fails the session."""
+    xml = """
+    <francis-workflow>
+        <record-create name="r">
+            <record-set-group name="item" required="true">
+                <record-set-field name="n" type="integer" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="r">
+            <record-add-group name="item">
+                <record-add-field name="n">not-a-number</record-add-field>
+            </record-add-group>
+        </record-add>
+    </francis-workflow>
+    """
+    parser = FParser()
+    runtime = FRuntime()
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-val-strict")
+    assert session.status == SessionStatus.FAILED
+
+
+def test_record_validation_collect_errors_skips_and_counts(tmp_path, monkeypatch):
+    """collect-errors: bad row skipped, good row kept, metadata counts."""
+    monkeypatch.chdir(tmp_path)
+    xml = """
+    <francis-workflow>
+        <record-create name="r" record-validation="collect-errors">
+            <record-set-group name="item" required="true">
+                <record-set-field name="n" type="integer" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="r">
+            <record-add-group name="item">
+                <record-add-field name="n">10</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-add to="r">
+            <record-add-group name="item">
+                <record-add-field name="n">not-a-number</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-add to="r">
+            <record-add-group name="item">
+                <record-add-field name="n">20</record-add-field>
+            </record-add-group>
+        </record-add>
+    </francis-workflow>
+    """
+    parser = FParser()
+    runtime = FRuntime()
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-val-collect")
+    assert session.status == SessionStatus.COMPLETED
+    from francis_suite.core.records import FRecord
+
+    rec = session.context.get_shared_box("r")
+    assert isinstance(rec, FRecord)
+    assert rec.count == 2
+    assert rec.validation_error_count == 1
+    assert "integer" in rec.validation_error_rows[0]["error"].lower()
+    meta = rec.build_private_metadata(session)
+    assert meta["filas_rechazadas_validacion"] == 1
+    assert meta["filas_duplicadas_por_clave"] == 0
+
+
+def test_record_save_validation_errors_ndjson(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    out_err = (tmp_path / "err.ndjson").as_posix()
+    xml = f"""
+    <francis-workflow>
+        <record-create name="r" record-validation="collect-errors">
+            <record-set-group name="item" required="true">
+                <record-set-field name="n" type="integer" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="r">
+            <record-add-group name="item">
+                <record-add-field name="n">1</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-add to="r">
+            <record-add-group name="item">
+                <record-add-field name="n">bad</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-save-validation-errors from="r" format="ndjson" path="{out_err}"/>
+    </francis-workflow>
+    """
+    parser = FParser()
+    runtime = FRuntime()
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-val-save-err")
+    assert session.status == SessionStatus.COMPLETED
+    lines = Path(out_err).read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) == 1
+    obj = json.loads(lines[0])
+    assert "validation_error" in obj
+    assert obj.get("raw_item.n") == "bad"
+
+
 def test_record_save_duplicates_rejects_include_metadata_true(tmp_path, monkeypatch):
     """include-metadata=\"true\" is not allowed on record-save-duplicates."""
     monkeypatch.chdir(tmp_path)

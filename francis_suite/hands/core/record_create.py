@@ -65,6 +65,8 @@ class RecordCreateHand(AbstractHand):
 
     Attributes:
         name (required): name of the record collection.
+        record-validation (optional): strict (default) — invalid row raises; collect-errors —
+            skip invalid rows, store for record-save-validation-errors and metadata counts.
 
     Child tags:
         <record-metadata> — optional, declares public metadata fields
@@ -119,6 +121,15 @@ class RecordCreateHand(AbstractHand):
         engine = FrancisExpression(self.context)
         name   = self.require_attr("name")
         schema = FRecordSchema(name=name)
+
+        rv = (self.node.get_attr("record-validation", "strict") or "strict").strip().lower()
+        if rv in ("strict", "collect-errors"):
+            schema.record_validation_mode = rv
+        else:
+            raise ValueError(
+                f"[RECORD] invalid record-validation '{rv}'. "
+                "Use 'strict' (default) or 'collect-errors'."
+            )
 
         by_tag: dict[str, list] = defaultdict(list)
         for child in self.node.children:
@@ -274,5 +285,6 @@ class RecordCreateHand(AbstractHand):
 
         meta_info = " with public metadata" if schema.has_public_metadata else ""
         key_info = f", record-key={len(schema.record_key_keys)} field(s)" if schema.record_key_keys else ""
-        print(f"[RECORD] created '{name}' with {len(schema.groups)} group(s){meta_info}{key_info}")
+        val_info = "" if schema.record_validation_mode == "strict" else f", validation={schema.record_validation_mode}"
+        print(f"[RECORD] created '{name}' with {len(schema.groups)} group(s){meta_info}{key_info}{val_info}")
         return FEmptyVariable()

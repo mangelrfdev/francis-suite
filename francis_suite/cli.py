@@ -31,6 +31,24 @@ def main() -> None:
 
     subparsers = parser.add_subparsers(dest="command")
 
+    # francis-suite schema [--out DIR]
+    schema_parser = subparsers.add_parser(
+        "schema",
+        help="Write XSD and JSON manifest for registered workflow hands",
+    )
+    schema_parser.add_argument(
+        "--out",
+        type=Path,
+        default=Path("schema"),
+        help="Output directory (default: ./schema)",
+    )
+    schema_parser.add_argument(
+        "--version",
+        dest="schema_version",
+        default=None,
+        help="Version string in the JSON manifest (default: package version)",
+    )
+
     # francis-suite run workflow.xml
     run_parser = subparsers.add_parser(
         "run",
@@ -52,8 +70,28 @@ def main() -> None:
 
     if args.command == "run":
         _run(args)
+    elif args.command == "schema":
+        _schema(args)
     else:
         parser.print_help()
+
+
+def _schema_version_default() -> str:
+    try:
+        from importlib.metadata import version as pkg_version
+
+        return pkg_version("francis-suite")
+    except Exception:
+        return "0.1.0"
+
+
+def _schema(args) -> None:
+    from francis_suite.schema_gen import write_schemas
+
+    ver = args.schema_version if args.schema_version is not None else _schema_version_default()
+    xsd_path, json_path = write_schemas(args.out, version=ver)
+    print(f"[OK] Wrote {xsd_path.as_posix()}")
+    print(f"[OK] Wrote {json_path.as_posix()}")
 
 
 def _run(args) -> None:

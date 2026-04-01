@@ -45,6 +45,21 @@ Los mismos `format` y atributos de serialización que `<record-save>` donde apli
 
 ---
 
+## `record-validation` y `<record-save-validation-errors>`
+
+En **`<record-create>`**, atributo opcional **`record-validation`**:
+
+| Valor | Comportamiento |
+|-------|----------------|
+| **`strict`** (default) | Si un `record-add` no puede normalizar (tipo inválido, required vacío, etc.), la sesión **falla** como hasta ahora. |
+| **`collect-errors`** | Esa fila **no** entra al record; se guarda internamente con el mensaje de error; la corrida **sigue**. |
+
+**`<record-save-validation-errors from="..." format="..." path="..."/>`** exporta esas filas rechazadas (columnas `validation_error` + `raw_*` por cada campo del `record-add`). Si no hubo errores, **no escribe** archivo. No soporta `include-metadata="true"` — la metadata pública va en `<record-save>`.
+
+En **metadata privada** automática aparecen **`filas_duplicadas_por_clave`** y **`filas_rechazadas_validacion`** (además de los contadores ya existentes).
+
+---
+
 ## Metadatos de exportación (`record-export-*`)
 
 Declarás **pares clave/valor** (y valores de sistema) **una vez**, como **hijos de `<record-create>`** (junto con grupos, metadata, record-key, etc.). Cada `<record-save>` solo elige `format` y `path`: el mismo record puede volcarse a varios formatos en la misma corrida y los extras se **serializan donde el formato lo permita**; si un formato no tiene canal para eso, **no se escriben** (no hay error; el archivo de datos igual se genera).

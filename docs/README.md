@@ -13,12 +13,27 @@
 
 | Guía | Tema |
 |------|------|
-| [record-save.md](guides/record-save.md) | `<record-save>`, `<record-save-duplicates>` (duplicados por `record-key`), `record-journal`, `record-export-*`, ejemplos `books_all_pages.xml` / `all_books_pages.xml` |
+| [record-save.md](guides/record-save.md) | `<record-save>`, `<record-save-duplicates>`, `<record-save-validation-errors>`, `record-validation` (strict / collect-errors), `record-journal`, `record-export-*`, ejemplos `books_all_pages.xml` / `all_books_pages.xml` |
 | [record-save-formats.md](guides/record-save-formats.md) | Diseño evolutivo (metadata-placement, plantillas, etc.) |
 | [sensitive.md](guides/sensitive.md) | Variables sensibles, masking, `--param` |
 | [httpx-call.md](guides/httpx-call.md) | HTTP: text, binary, stream |
 | [file_manage.md](guides/file_manage.md) | `file-manage` |
 | [converts.md](guides/converts.md) | Hands de conversión |
+| [workflow-schema.md](guides/workflow-schema.md) | Generar `schema/francis-workflow.xsd` y manifest JSON; uso en el editor; Windows |
+
+## Integraciones (producto que consume Francis)
+
+| Recurso | Contenido |
+|---------|-----------|
+| [integrations/web/README.md](../integrations/web/README.md) | Specs y handoff para **un** sitio/producto (ej. Estación); no es núcleo del framework |
+
+## Plantillas (cualquier proyecto)
+
+| Recurso | Contenido |
+|---------|-----------|
+| [templates/cursor-reusable-rules/](../templates/cursor-reusable-rules/README.md) | Reglas `.mdc` genéricas para copiar a `.cursor/rules/` en repos nuevos |
+| [templates/claude/](../templates/claude/README.md) | Instrucciones personalizadas + plantilla de contexto inicial para chats en Claude |
+| [templates/user-rules-cursor-example.md](../templates/user-rules-cursor-example.md) | Ejemplo para pegar en User Rules globales de Cursor (tono cálido + criterios generales) |
 
 ## Ejemplos en el repo
 

@@ -195,16 +195,17 @@ Roadmap y pendientes detallados: **`docs/roadmap.md`** (no duplicar aquí; evita
 
 ## Schema XML (insumo del plugin)
 
-Francis Suite genera su propio schema automáticamente.
-Comando: python -m francis_suite schema
-Output: schema/francis-workflow.schema.json
+Francis Suite genera artefactos desde el registry de hands.
+Comando: `python -m francis_suite schema` o `francis-suite schema --out schema`
+Output: `schema/francis-workflow.xsd` (validación / tags en el IDE) y
+`schema/francis-workflow.schema.json` (manifiesto con lista de tags).
 
-Este schema describe todos los hands registrados, sus atributos,
-tipos y valores permitidos. El plugin VSCode lo consume para
-autocompletado, syntax highlighting y documentación inline.
+Guía: **`docs/guides/workflow-schema.md`** (generar, usar en VS Code/Cursor, Windows).
 
-Cada vez que se agrega un hand nuevo hay que correr este comando
-y commitear el schema actualizado.
+El XSD lista tags bajo `<francis-workflow>`; atributos siguen flexibles (`anyAttribute`).
+Un plugin futuro puede enriquecer autocompletado de atributos.
+
+Cada vez que se agrega un hand nuevo hay que regenerar y commitear `schema/`.
 
 ---
 

@@ -292,6 +292,7 @@ Files:        file-read, file-write (encoding: utf-8, binary, newline)
 Records:      record-create, record-add, record-last-added, record-count
               record-save (json, csv, ndjson, xml, html, txt, excel, parquet)
               record-save-duplicates (mismos formatos; filas con record-key duplicada; sin include-metadata)
+              record-save-validation-errors (filas con error de validación si record-validation=collect-errors)
               record-save-metadata (solo metadata privada, sin rows)
               record-private-metadata (agrega metadata en cualquier parte)
 

@@ -1,0 +1,30 @@
+---
+description: Flujo de trabajo — edición de archivos, git, tests, terminal (reutilizable)
+alwaysApply: true
+---
+
+# Flujo de trabajo — preferencias base
+
+**EDITAR esta sección** según cómo trabajes tú en cada proyecto (o dejá el texto por defecto).
+
+## Modificar archivos
+
+- Por defecto: **no modificar el workspace** salvo que el usuario lo pida **explícitamente** (incluye “implementá”, “aplicá el cambio”, “hacé el PR”, etc.).
+- Si solo pide ideas o código para pegar: **explicar y dar bloques**, sin tocar el repo.
+- Cuando sí haya cambios: **resumir qué archivos** y **por qué** antes o al presentar el diff.
+
+## Git
+
+- No asumir que el asistente hace `git` por vos: indicar **comandos concretos** para que **vos** los ejecutes (`git status`, `git add`, `git commit`, `git push`).
+- Proponer **mensaje de commit** claro cuando corresponda.
+- Ejecutar `git` desde el agente **solo si el usuario lo pide explícitamente**.
+
+## Tests y terminal
+
+- Para verificar el proyecto: dar **comandos desde la raíz** (adaptá al stack: `pytest`, `npm test`, `cargo test`, etc.).
+- Por defecto: **el usuario corre** en su máquina y **pega** salida útil (resumen o primer error).
+- Ejecutar comandos en la terminal del agente **solo si el usuario lo pide explícitamente**.
+
+## Contexto en conversaciones largas
+
+- Interpretar el mensaje actual a la luz del **hilo completo**; el objetivo implícito importa tanto como el texto literal.

@@ -26,10 +26,19 @@ francis-suite run examples/books_scraper.xml
 | `examples/books_all_pages.xml` | Paginated scrape + `record-create` (`record-export-*`, optional `record-journal`, `record-xml-*` for XML) + **eight** `<record-save>` → `output/books.*` |
 | `examples/all_books_pages.xml` | Like above + `record-key`, metadata, `record-journal` (NDJSON vivo), `record-xml-record-attr` `id` / `url` → `output/all_books_pages.*` |
 | `examples/test_boolean.xml`, `examples/test_sensitive.xml` | Tiny workflows for conditions / sensitive masking |
+| `examples/record_pipeline_minimal.xml` | Same record patterns as `all_books_pages` (metadata, journal, xml attrs, multi-format `record-save`) + duplicates + private metadata; sample property rows |
 
 Full **record-save** reference (formats, attributes, samples): [docs/guides/record-save.md](docs/guides/record-save.md).
 
 **Índice de toda la documentación:** [docs/README.md](docs/README.md).
+
+**Plantillas Cursor (reglas reutilizables en otros proyectos):** [templates/cursor-reusable-rules/README.md](templates/cursor-reusable-rules/README.md).
+
+**Plantillas Claude (instrucciones + contexto para chat nuevo):** [templates/claude/README.md](templates/claude/README.md).
+
+**Ejemplo de User Rules globales (Cursor):** [templates/user-rules-cursor-example.md](templates/user-rules-cursor-example.md).
+
+**Integración con un producto web (ej. Estación Inmobiliaria):** toda la spec y handoff están en **[`integrations/web/README.md`](integrations/web/README.md)** (copiar esa carpeta al otro repo o usar con `@`). No forma parte del núcleo del framework.
 
 ## Example
 ```xml
@@ -76,10 +85,16 @@ francis-suite run workflow.xml
 # Pass variables (shared-box)
 francis-suite run workflow.xml --param url=https://ejemplo.com --param token=SECRET
 
+# Regenerate editor schema (XSD + JSON manifest) under schema/
+francis-suite schema --out schema
+# If the launcher is blocked on Windows, use: uv run python -m francis_suite schema --out schema
+
 # Help
 francis-suite --help
 francis-suite --version
 ```
+
+**Editor / validation:** [docs/guides/workflow-schema.md](docs/guides/workflow-schema.md) — generate `schema/francis-workflow.xsd`, associate it in VS Code/Cursor, and work around Windows app control if needed.
 
 **Paths:** Relative paths in workflows (e.g. `output/file.csv`) are resolved against the **process working directory** (where you run the command), not a built-in project root. For production jobs, use absolute paths or inject a base path via `--param` / environment and `${variable}` in XML. Ideas such as CLI `--workspace`, write sandboxing, or split export files are **out of scope for now** — see [docs/roadmap.md — “Analizar en el futuro (no prioritario)”](docs/roadmap.md#analizar-futuro-no-prioridad).
 
@@ -126,6 +141,9 @@ francis_suite/
 │   └── core/       # built-in hands (ext/ planned for plugins)
 tests/
 docs/
+schema/           # generated: francis-workflow.xsd, francis-workflow.schema.json (run: francis-suite schema)
+integrations/web/ # optional: specs for a consumer product (e.g. web app); not core framework
+templates/        # reusable Cursor/Claude rule snippets for any project
 examples/
 ├── books_scraper.xml
 ├── books_all_pages.xml

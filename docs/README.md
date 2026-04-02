@@ -35,6 +35,12 @@
 | [templates/claude/](../templates/claude/README.md) | Instrucciones personalizadas + plantilla de contexto inicial para chats en Claude |
 | [templates/user-rules-cursor-example.md](../templates/user-rules-cursor-example.md) | Ejemplo para pegar en User Rules globales de Cursor (tono cálido + criterios generales) |
 
+## Documentación privada (`docs/private/`)
+
+La carpeta **`docs/private/`** está en **`.gitignore`**: sirve para tutoriales operativos (Docker, OCIR, runbooks) que **no** deben subirse al remoto. Crea ahí tus `.md` en local; un `git clone` **no** trae esos archivos.
+
+En tu copia de trabajo puedes tener p. ej. `docs/private/docker-oracle-ocir.md` (tutorial Docker + OCIR); al hacer `git push` esa ruta no se incluye.
+
 ## Ejemplos en el repo
 
 Ver `examples/` en la raíz del proyecto y la tabla en el [README principal](../README.md#examples).

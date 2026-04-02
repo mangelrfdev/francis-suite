@@ -38,6 +38,9 @@ logs/
 # Local env (e.g. WORKFLOWS_HOST_PATH)
 .env
 
+# Private operational docs (OCIR paths, runbooks); not committed — see docs/README.md
+docs/private/
+
 # Francis Suite runtime
 sessions/
 output/

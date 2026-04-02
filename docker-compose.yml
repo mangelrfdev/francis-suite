@@ -1,0 +1,16 @@
+# Francis Suite — workflows from ANY host folder (inside or outside this repo).
+#
+# Default: mount ./workflows relative to this file. To use a folder elsewhere:
+#   1) Copy .env.example to .env
+#   2) Set WORKFLOWS_HOST_PATH to an absolute path, e.g. C:/FrancisWorkflows (Docker Desktop: forward slashes OK)
+#
+# Image has no XML baked in — you must mount /app/workflows or every run fails.
+
+services:
+  francis:
+    build: .
+    image: francis-suite:local
+    volumes:
+      - ./docker-output:/app/output
+      - ${WORKFLOWS_HOST_PATH:-./workflows}:/app/workflows
+    # On Linux runners, if Chromium crashes, try: ipc: host

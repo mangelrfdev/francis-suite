@@ -579,6 +579,9 @@ class FRecord(FVariable):
         self._private_meta: dict = {}
         self._seen_record_key_hashes: set[str] = set()
         self._journal_finalized: bool = False
+        # Set by <record-save-metadata path="..."/> — written in runtime after session completes
+        # so status/duration/fin reflect the final session state.
+        self._deferred_private_metadata_path: str | None = None
 
         # RAM tracking with psutil if available
         self._ram_samples:  list[float] = []
@@ -605,6 +608,19 @@ class FRecord(FVariable):
     @property
     def count(self) -> int:
         return len(self._rows)
+
+    def register_deferred_private_metadata_path(self, path: str) -> None:
+        """
+        Custom path for private metadata JSON. The runtime writes this file once after the
+        session ends (success or failure) so fields like status, fin, duracion_segundos match
+        the final session instead of mid-workflow snapshots.
+        """
+        p = (path or "").strip()
+        self._deferred_private_metadata_path = p if p else None
+
+    @property
+    def deferred_private_metadata_path(self) -> str | None:
+        return self._deferred_private_metadata_path
 
     @property
     def duplicate_count(self) -> int:

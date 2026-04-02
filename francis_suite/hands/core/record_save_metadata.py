@@ -2,10 +2,10 @@
 hands/core/record_save_metadata.py
 
 RecordSaveMetadataHand implements the <record-save-metadata> tag.
-Saves only the private metadata to disk — no rows, no duplication.
+Registers a path for private metadata JSON — no rows, no duplication.
 
-The private metadata is always complete regardless of whether the
-workflow completed or failed. Missing values are null.
+The JSON file is written once after the session ends (see FRuntime._persist_private_record_metadata)
+so status, fin, and duration match the final session, not a mid-workflow snapshot.
 
 Usage in XML:
     <record-save-metadata from="propiedadesRecords"
@@ -23,15 +23,16 @@ from francis_suite.hands.base import AbstractHand
 @hand(tag="record-save-metadata")
 class RecordSaveMetadataHand(AbstractHand):
     """
-    Saves only the private metadata to disk as JSON.
-    Never includes rows — zero duplication of data.
+    Registers a custom output path for private metadata JSON (no rows).
+
+    The file is written in FRuntime._persist_private_metadata after the session
+    completes or fails (same moment as sessions/<session_id>/<record>_private_metadata.json),
+    so status, fin, and duracion_segundos are final.
 
     The runtime also writes private metadata at session end for each FRecord under
-    sessions/<session_id>/ (unless FRANCIS_AUTO_RECORD_METADATA=0). Use this hand
-    for a custom output path.
+    sessions/<session_id>/ (unless FRANCIS_AUTO_RECORD_METADATA=0).
 
-    Always works regardless of session status.
-    Missing values are null, never raises.
+    Missing values in the JSON are null where not applicable, never raises.
 
     Private metadata includes:
         Traceability:  session_id, workflow_path, francis_suite_version,
@@ -76,5 +77,5 @@ class RecordSaveMetadataHand(AbstractHand):
                 f"Make sure <record-create name=\"{record_name}\"> runs first."
             )
 
-        record.save_meta(path=path, session=self.session)
+        record.register_deferred_private_metadata_path(path)
         return FEmptyVariable()

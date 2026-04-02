@@ -18,13 +18,30 @@ uv sync
 francis-suite run examples/books_scraper.xml
 ```
 
+## Docker
+
+- **Image** — `francis_suite` + dependencies only. **No** `examples/` and **no** workflow XML inside the image; XML always comes from a **mounted host folder** at `/app/workflows`.
+- **Container** — one execution: `docker run` or `docker compose run`.
+
+```bash
+docker build -t francis-suite:local .
+# Compose: default mount ./workflows; or set WORKFLOWS_HOST_PATH in `.env` to a folder outside this repo (see `.env.example`).
+docker compose run --rm francis
+```
+
+Outputs appear under `./docker-output/` on the host.
+
+**Workflows outside the repo:** copy `.env.example` → `.env`, set `WORKFLOWS_HOST_PATH=C:/your/path`, put `.xml` there, then `docker compose run --rm francis francis-suite run workflows/your.xml`. See **`workflows/README.md`**.
+
+Official demos stay under **`examples/`** for local `uv run` only.
+
 ## Examples
 
 | File | What it shows |
 |------|----------------|
 | `examples/books_scraper.xml` | Single page, loop + `<log>` (minimal; see comments for full record pipeline) |
 | `examples/books_all_pages.xml` | Paginated scrape + `record-create` (`record-export-*`, optional `record-journal`, `record-xml-*` for XML) + **eight** `<record-save>` → `output/books.*` |
-| `examples/all_books_pages.xml` | Like above + `record-key`, metadata, `record-journal` (NDJSON vivo), `record-xml-record-attr` `id` / `url` → `output/all_books_pages.*` |
+| `examples/all_books_pages.xml` | Run folder `output/{SOURCE}_{UTC}_{SHORT}/` (CAPS via `toUpperCase`; params from shell; default folder `BOOKS_TOSCRAPE_NODATE_LOCAL`). NDJSON: `LISTINGS_{SHORT}.NDJSON`. Private metadata: `BOOKSRECORDS_PRIVATE_METADATA_{SHORT}.JSON`. See `workflows/README.md`. |
 | `examples/test_boolean.xml`, `examples/test_sensitive.xml` | Tiny workflows for conditions / sensitive masking |
 | `examples/record_pipeline_minimal.xml` | Same record patterns as `all_books_pages` (metadata, journal, xml attrs, multi-format `record-save`) + duplicates + private metadata; sample property rows |
 

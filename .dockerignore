@@ -1,0 +1,35 @@
+# Shrink build context and avoid sending dev/editor/docs into the Docker daemon.
+# The Dockerfile only COPYs francis_suite + examples + project metadata — those paths
+# are what end up in the image. This file still matters for speed and so a future
+# COPY . . does not leak .cursor, integrations, templates, etc.
+
+.cursor
+.git
+.github
+.idea
+.vscode
+
+.pytest_cache
+__pycache__
+**/__pycache__
+**/*.pyc
+**/*.pyo
+.ruff_cache
+.mypy_cache
+htmlcov
+.coverage
+
+# Local runs and secrets (never bake these in)
+output
+docker-output
+.env
+.env.*
+
+# Not needed inside the runtime image
+tests
+docs
+integrations
+templates
+sessions
+schema
+examples

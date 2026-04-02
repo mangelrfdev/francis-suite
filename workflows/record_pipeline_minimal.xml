@@ -8,8 +8,9 @@
 
         Ask the web repo for: SQL or types for properties table — see integrations/web/07-PARA-FRANCIS-ALINEAR-RECORD-SCHEMA.md
 
-        Run: uv run francis-suite run examples/record_pipeline_minimal.xml
-        Docker image uses workflows/record_pipeline_minimal.xml (twin — keep in sync when changing this file).
+        Docker default workflow (image has workflows/ only, not examples/).
+        Run (host): uv run francis-suite run workflows/record_pipeline_minimal.xml
+        Upstream twin: examples/record_pipeline_minimal.xml — keep in sync when changing this file.
         Outputs: output/record_pipeline_minimal/
     -->
 

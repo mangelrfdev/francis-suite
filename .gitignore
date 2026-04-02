@@ -35,7 +35,11 @@ htmlcov/
 *.log
 logs/
 
+# Local env (e.g. WORKFLOWS_HOST_PATH)
+.env
+
 # Francis Suite runtime
 sessions/
 output/
+docker-output/
 docs/nomenclatures.yaml

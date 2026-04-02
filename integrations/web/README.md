@@ -30,6 +30,9 @@ Ejemplo de workflow alineado al contrato: **`examples/record_pipeline_minimal.xm
 | 5 | [`05-COMO-QUIERO-EL-PANEL-ADMIN.md`](05-COMO-QUIERO-EL-PANEL-ADMIN.md) | Refresco F5 vs por módulo. |
 | 6 | [`06-MAPA-PANELES-ADMIN-MVP-Y-FASES.md`](06-MAPA-PANELES-ADMIN-MVP-Y-FASES.md) | Rutas admin MVP vs fases. |
 | 7 | [`07-PARA-FRANCIS-ALINEAR-RECORD-SCHEMA.md`](07-PARA-FRANCIS-ALINEAR-RECORD-SCHEMA.md) | Alinear `record-create` con la tabla `properties`. |
+| 8 | [`08-GCP-PIPELINE-Y-JOB-INGESTA.md`](08-GCP-PIPELINE-Y-JOB-INGESTA.md) | Nube (GCP u OCI), bucket, job → Supabase; **§8** NDJSON vs metadata/journal y cómo el job encuentra archivos. |
+| 9 | [`09-DOCKER-OCI-CHECKLIST.md`](09-DOCKER-OCI-CHECKLIST.md) | Docker (conceptos + comandos), checklist OCI + pipeline; enlaza al `Dockerfile` del repo. |
+| — | [`seed-example-properties.sql`](seed-example-properties.sql) | `INSERT` de ejemplo para Supabase (misma tabla que listado + admin; `source = 'demo_seed'`). |
 
 **Uso:** copiá **`integrations/web/`** entera al repo del sitio (p. ej. `docs/contexto-francis/`) o referenciá archivos con `@`.
 

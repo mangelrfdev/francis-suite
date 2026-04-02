@@ -258,3 +258,11 @@ class FRuntime:
                 var.save_meta(str(path), session=session)
             except Exception as e:
                 print(f"[RECORD] auto private metadata save failed for '{name}': {e}")
+            custom = var.deferred_private_metadata_path
+            if custom:
+                try:
+                    var.save_meta(custom, session=session)
+                except Exception as e:
+                    print(
+                        f"[RECORD] deferred private metadata save failed for '{name}': {e}"
+                    )

@@ -15,7 +15,11 @@ El núcleo del framework sigue en `docs/architecture.md`, `docs/guides/record-sa
 
 Documento operativo en el sitio (NDJSON → DB, líneas `_type` / `export`, E2E): **`docs/INGESTION-JOB-NEXT-STEPS.md`** (en el repo del sitio).
 
+Salida en VM / Docker OCIR lista para el job (paths, `LISTINGS_*.NDJSON`, `RUN_MANIFEST.JSON`, `DOCKER_UID`): **`09-DOCKER-OCI-CHECKLIST.md`** (Parte D).
+
 Ejemplo de workflow alineado al contrato: **`examples/record_pipeline_minimal.xml`**.
+
+Estado compartido con el sitio (bucket/prefijo OCI cuando existan): **`FRANCIS-ESTACION-SYNC.md`**.
 
 ---
 
@@ -32,6 +36,7 @@ Ejemplo de workflow alineado al contrato: **`examples/record_pipeline_minimal.xm
 | 7 | [`07-PARA-FRANCIS-ALINEAR-RECORD-SCHEMA.md`](07-PARA-FRANCIS-ALINEAR-RECORD-SCHEMA.md) | Alinear `record-create` con la tabla `properties`. |
 | 8 | [`08-GCP-PIPELINE-Y-JOB-INGESTA.md`](08-GCP-PIPELINE-Y-JOB-INGESTA.md) | Nube (GCP u OCI), bucket, job → Supabase; **§8** NDJSON vs metadata/journal y cómo el job encuentra archivos. |
 | 9 | [`09-DOCKER-OCI-CHECKLIST.md`](09-DOCKER-OCI-CHECKLIST.md) | Docker (conceptos + comandos), checklist OCI + pipeline; enlaza al `Dockerfile` del repo. |
+| — | [`FRANCIS-ESTACION-SYNC.md`](FRANCIS-ESTACION-SYNC.md) | Estado compartido con estacion-inmobiliaria; bucket/prefijo OCI (rellenar). |
 | — | [`seed-example-properties.sql`](seed-example-properties.sql) | `INSERT` de ejemplo para Supabase (misma tabla que listado + admin; `source = 'demo_seed'`). |
 
 **Uso:** copiá **`integrations/web/`** entera al repo del sitio (p. ej. `docs/contexto-francis/`) o referenciá archivos con `@`.

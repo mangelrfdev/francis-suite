@@ -1,0 +1,17 @@
+# Run a pre-built image from OCIR (or any registry) — no `docker build` on the VM.
+#
+# 1) Copy `.env.example` → `.env` and set:
+#    FRANCIS_IMAGE=sa-santiago-1.ocir.io/YOUR_NAMESPACE/francis-suite:1.0.0
+#    WORKFLOWS_HOST_PATH=/absolute/path/to/francis-workflows
+# 2) docker login to OCIR (same as on your PC).
+# 3) docker compose -f docker-compose.ocir.yml --env-file .env pull
+# 4) docker compose -f docker-compose.ocir.yml --env-file .env run --rm francis francis-suite run workflows/...
+#
+# Paths under `workflows/...` are relative to the mounted workflows folder.
+
+services:
+  francis:
+    image: ${FRANCIS_IMAGE}
+    volumes:
+      - ./docker-output:/app/output
+      - ${WORKFLOWS_HOST_PATH:-./workflows}:/app/workflows

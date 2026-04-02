@@ -31,6 +31,8 @@ docker compose run --rm francis
 
 Outputs appear under `./docker-output/` on the host.
 
+**Image from OCIR / registry (no local build):** set `FRANCIS_IMAGE` and `WORKFLOWS_HOST_PATH` in `.env`, then `docker compose -f docker-compose.ocir.yml --env-file .env pull` and `docker compose -f docker-compose.ocir.yml --env-file .env run --rm francis francis-suite run workflows/...`. See comments in `docker-compose.ocir.yml`.
+
 **Workflows outside the repo:** copy `.env.example` → `.env`, set `WORKFLOWS_HOST_PATH=C:/your/path`, put `.xml` there, then `docker compose run --rm francis francis-suite run workflows/your.xml`. See **`workflows/README.md`**.
 
 Official demos stay under **`examples/`** for local `uv run` only.

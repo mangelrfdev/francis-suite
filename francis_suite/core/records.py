@@ -259,6 +259,14 @@ class FRecordField:
         """Normalize and validate a raw value according to this field's type."""
         value = str(raw_value).strip() if raw_value is not None else ""
 
+        # Workflow literal "NULL" in <box-def> → explicit None for optional fields (JSON null).
+        if value.upper() == "NULL":
+            if not self.required:
+                return None
+            raise ValueError(
+                f"[RECORD] field '{self.name}' is required — literal NULL is not allowed"
+            )
+
         if not value:
             if self.type == "uuid":
                 return str(uuid.uuid4())
@@ -1253,7 +1261,12 @@ class FRecord(FVariable):
         if not rows:
             return
 
-        flat_rows = [self._flatten(row) for row in rows]
+        flat_rows_raw = [self._flatten(row) for row in rows]
+        # CSV has no JSON null — empty string for missing / None
+        flat_rows = [
+            {k: ("" if v is None else v) for k, v in r.items()}
+            for r in flat_rows_raw
+        ]
 
         keys: list[str] = []
         for row in flat_rows:
@@ -1421,8 +1434,9 @@ class FRecord(FVariable):
         for row in flat_rows:
             parts.append("<tr>")
             for k in keys:
-                cell = row.get(k, "")
-                parts.append(f"<td>{html_module.escape(str(cell))}</td>")
+                cell = row.get(k)
+                cell_s = "" if cell is None else str(cell)
+                parts.append(f"<td>{html_module.escape(cell_s)}</td>")
             parts.append("</tr>")
         parts.append("</tbody></table></body></html>")
 
@@ -1457,7 +1471,12 @@ class FRecord(FVariable):
 
         lines.append("\t".join(keys))
         for row in flat_rows:
-            lines.append("\t".join(str(row.get(k, "")) for k in keys))
+            lines.append(
+                "\t".join(
+                    "" if row.get(k) is None else str(row.get(k))
+                    for k in keys
+                )
+            )
 
         write_text_atomic(path, "\n".join(lines) + "\n")
 
@@ -1491,7 +1510,7 @@ class FRecord(FVariable):
 
         ws.append(keys)
         for row in flat_rows:
-            ws.append([row.get(k, "") for k in keys])
+            ws.append(["" if row.get(k) is None else row.get(k) for k in keys])
 
         xa = export_augmentation or {}
         if include_metadata and self._schema.has_public_metadata:
@@ -1536,11 +1555,16 @@ class FRecord(FVariable):
         tmp.replace(path)
 
     def _flatten(self, obj: dict, prefix: str = "") -> dict:
+        """
+        Nested record row → flat keys like ``listing.price``.
+        Preserve ``None`` so JSON/NDJSON exports emit ``null`` (do not coerce to "").
+        Formats that need blank cells (CSV, etc.) normalize None at write time.
+        """
         result = {}
         for key, value in obj.items():
             full_key = f"{prefix}.{key}" if prefix else key
             if isinstance(value, dict):
                 result.update(self._flatten(value, full_key))
             else:
-                result[full_key] = value if value is not None else ""
+                result[full_key] = value
         return result

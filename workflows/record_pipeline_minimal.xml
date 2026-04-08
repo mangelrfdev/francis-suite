@@ -2,7 +2,7 @@
 <francis-workflow>
 
     <!--
-        Aligned with examples/all_books_pages.xml (metadata, journal, xml attrs, multi-format save).
+        Aligned with examples/demos/all_books_pages.xml (metadata, journal, xml attrs, multi-format save).
         Listing fields follow integrations/web/01-ESPECIFICACION-SITIO-INGESTA-ADMIN.md (ingestion contract).
         UTF-8: comuna and titles can use Spanish characters (e.g. Ñuñoa).
 
@@ -10,7 +10,7 @@
 
         Docker default workflow (image has workflows/ only, not examples/).
         Run (host): uv run francis-suite run workflows/record_pipeline_minimal.xml
-        Upstream twin: examples/record_pipeline_minimal.xml — keep in sync when changing this file.
+        Upstream twin: examples/demos/record_pipeline_minimal.xml — keep in sync when changing this file.
         Outputs: output/record_pipeline_minimal/
     -->
 
@@ -55,6 +55,7 @@
             <record-set-field name="surface" type="decimal" required="false" null-if-empty="true"/>
             <record-set-field name="image_url" type="url" required="false" null-if-empty="true"/>
             <record-set-field name="source_url" type="url" required="true"/>
+            <record-set-field name="publisher_name" type="string" required="false" null-if-empty="true"/>
             <record-set-field name="published_at" type="datetime" required="false" null-if-empty="true"/>
             <record-set-field name="scraped_at" type="datetime" required="false" null-if-empty="true"/>
         </record-set-group>
@@ -84,6 +85,7 @@
             <record-add-field name="surface">85</record-add-field>
             <record-add-field name="image_url">https://example.com/img/prop-001.jpg</record-add-field>
             <record-add-field name="source_url">https://example.com/listings/prop-001</record-add-field>
+            <record-add-field name="publisher_name">BValue Propiedades</record-add-field>
             <record-add-field name="published_at">${demo_published_1}</record-add-field>
             <record-add-field name="scraped_at">${demo_scraped}</record-add-field>
         </record-add-group>
@@ -107,6 +109,7 @@
             <record-add-field name="surface">85</record-add-field>
             <record-add-field name="image_url">https://example.com/img/prop-001.jpg</record-add-field>
             <record-add-field name="source_url">https://example.com/listings/prop-001</record-add-field>
+            <record-add-field name="publisher_name">BValue Propiedades</record-add-field>
             <record-add-field name="published_at">${demo_published_1}</record-add-field>
             <record-add-field name="scraped_at">${demo_scraped}</record-add-field>
         </record-add-group>
@@ -129,6 +132,7 @@
             <record-add-field name="surface">120</record-add-field>
             <record-add-field name="image_url">https://example.com/img/prop-002.jpg</record-add-field>
             <record-add-field name="source_url">https://example.com/listings/prop-002</record-add-field>
+            <record-add-field name="publisher_name">Corredora Ejemplo SpA</record-add-field>
             <record-add-field name="published_at">${demo_published_2}</record-add-field>
             <record-add-field name="scraped_at">${demo_scraped}</record-add-field>
         </record-add-group>

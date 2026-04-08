@@ -109,7 +109,7 @@ Los flags booleanos en `record-save` (`xml-include-root-session-id`, etc.) **sum
 
 ---
 
-## Ejemplo completo: `examples/books_all_pages.xml`
+## Ejemplo completo: `examples/demos/books_all_pages.xml`
 
 El ejemplo **books to scrape** (paginación + HTTP) además guarda cada libro en un **`FRecord`** (`booksRecords`). Opcionalmente puede declararse `<record-journal path="…"/>` para un NDJSON **incremental** durante el scrape. **Al terminar** el scrape, el mismo record se exporta con varios `<record-save>` — **ocho archivos** de salida final bajo `output/` (más el journal si está declarado):
 
@@ -127,12 +127,12 @@ El ejemplo **books to scrape** (paginación + HTTP) además guarda cada libro en
 **Cómo correrlo** (requiere red; puede tardar varios minutos):
 
 ```bash
-francis-suite run examples/books_all_pages.xml
+francis-suite run examples/demos/books_all_pages.xml
 ```
 
 En el workflow: `<record-create name="booksRecords">` incluye los hijos `record-export-*` una vez; grupo `book` (`record_key`, `titulo`, `precio`); en el loop, `record_key` = `book-${contador}`; al final, ocho `<record-save>` mínimos (solo `format` y `path`) al mismo `from="booksRecords"`.
 
-El ejemplo añade **`record-xml-root-attr`** / **`record-xml-record-attr`** (solo afectan a `output/books.xml`): p. ej. `dataset` en la raíz e `id` por fila desde `book.record_key`. **`examples/all_books_pages.xml`** declara además `url` en cada `<record>` desde `book.url_libro` (`required` omitido → `false`), **`record-journal`** hacia `output/all_books_pages.journal.ndjson` (vivo) y los **mismos** ocho `record-save` con prefijo `all_books_pages.*`.
+El ejemplo añade **`record-xml-root-attr`** / **`record-xml-record-attr`** (solo afectan a `output/books.xml`): p. ej. `dataset` en la raíz e `id` por fila desde `book.record_key`. **`examples/demos/all_books_pages.xml`** declara además `url` en cada `<record>` desde `book.url_libro` (`required` omitido → `false`), **`record-journal`** hacia `output/all_books_pages.journal.ndjson` (vivo) y los **mismos** ocho `record-save` con prefijo `all_books_pages.*`.
 
 El listado plano **`output/todos_los_libros.txt`** sigue generándose como antes (misma corrida, otro consumo).
 
@@ -257,7 +257,7 @@ Columnas aplanadas; metadata de exportación en el esquema de tabla (`francis_ex
 <record-save from="booksRecords" format="parquet"  path="output/books.parquet"/>
 ```
 
-`examples/books_all_pages.xml` declara `record-export-*` y `record-xml-*` dentro de `<record-create>`. `examples/all_books_pages.xml` añade `case_key` con `${case_key}` en `record-export-attr` y `record-xml-record-attr` para `id` / `url` (ver «Metadatos de exportación» arriba).
+`examples/demos/books_all_pages.xml` declara `record-export-*` y `record-xml-*` dentro de `<record-create>`. `examples/demos/all_books_pages.xml` añade `case_key` con `${case_key}` en `record-export-attr` y `record-xml-record-attr` para `id` / `url` (ver «Metadatos de exportación» arriba).
 
 `path` puede usar `${variables}` si resolvés rutas por entorno o parámetros.
 

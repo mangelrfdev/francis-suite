@@ -2,7 +2,7 @@
 
 Documento de **diseño evolutivo** para `record-save`: ideas que aún no están todas en código (`metadata-placement`, plantillas txt libres, etc.).
 
-**Implementación actual (incl. xml, html, txt, excel, parquet), `record-journal` (NDJSON incremental), `record-export-*` / `record-export-root-attr` / `show-attribute`, `record-xml-*` (solo XML) y tabla “cuándo usar cada formato”:** [record-save.md](record-save.md) (`examples/books_all_pages.xml`, `all_books_pages.xml`).
+**Implementación actual (incl. xml, html, txt, excel, parquet), `record-journal` (NDJSON incremental), `record-export-*` / `record-export-root-attr` / `show-attribute`, `record-xml-*` (solo XML) y tabla “cuándo usar cada formato”:** [record-save.md](record-save.md) (`examples/demos/books_all_pages.xml`, `examples/demos/all_books_pages.xml`).
 
 **Relacionado:** `record-save-metadata` (metadata **privada** sin rows), metadata pública en `record-create` (`<record-metadata>`), tests golden / comparación de contenido (pendiente, ver sección al final).
 

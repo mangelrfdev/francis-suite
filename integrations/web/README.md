@@ -2,6 +2,8 @@
 
 **Francis Suite** es un **framework general**; esta carpeta **no** es parte del núcleo del motor. Es **material de apoyo** para un proyecto que **usa** Francis (sitio agregador + Supabase + GCP): specs, admin UX, handoff con el otro repo.
 
+**Narrativa portafolio + scraping + entrevistas:** [../docs/guides/portfolio-scraping-communication.md](../docs/guides/portfolio-scraping-communication.md).
+
 El núcleo del framework sigue en `docs/architecture.md`, `docs/guides/record-save.md`, `francis_suite/`, etc.
 
 ---
@@ -17,7 +19,7 @@ Documento operativo en el sitio (NDJSON → DB, líneas `_type` / `export`, E2E)
 
 Salida en VM / Docker OCIR lista para el job (paths, `LISTINGS_*.NDJSON`, `RUN_MANIFEST.JSON`, `DOCKER_UID`): **`09-DOCKER-OCI-CHECKLIST.md`** (Parte D).
 
-Ejemplo de workflow alineado al contrato: **`examples/record_pipeline_minimal.xml`**.
+Ejemplo de workflow alineado al contrato: **`examples/demos/record_pipeline_minimal.xml`**.
 
 Estado compartido con el sitio (bucket/prefijo OCI cuando existan): **`FRANCIS-ESTACION-SYNC.md`**.
 
@@ -34,6 +36,7 @@ Estado compartido con el sitio (bucket/prefijo OCI cuando existan): **`FRANCIS-E
 | 5 | [`05-COMO-QUIERO-EL-PANEL-ADMIN.md`](05-COMO-QUIERO-EL-PANEL-ADMIN.md) | Refresco F5 vs por módulo. |
 | 6 | [`06-MAPA-PANELES-ADMIN-MVP-Y-FASES.md`](06-MAPA-PANELES-ADMIN-MVP-Y-FASES.md) | Rutas admin MVP vs fases. |
 | 7 | [`07-PARA-FRANCIS-ALINEAR-RECORD-SCHEMA.md`](07-PARA-FRANCIS-ALINEAR-RECORD-SCHEMA.md) | Alinear `record-create` con la tabla `properties`. |
+| — | [`PUBLISHER_NAME-ROLLOUT.md`](PUBLISHER_NAME-ROLLOUT.md) | Campo opcional `publisher_name`: SQL, tipos, ingesta, UI + Francis. |
 | 8 | [`08-GCP-PIPELINE-Y-JOB-INGESTA.md`](08-GCP-PIPELINE-Y-JOB-INGESTA.md) | Nube (GCP u OCI), bucket, job → Supabase; **§8** NDJSON vs metadata/journal y cómo el job encuentra archivos. |
 | 9 | [`09-DOCKER-OCI-CHECKLIST.md`](09-DOCKER-OCI-CHECKLIST.md) | Docker (conceptos + comandos), checklist OCI + pipeline; enlaza al `Dockerfile` del repo. |
 | — | [`FRANCIS-ESTACION-SYNC.md`](FRANCIS-ESTACION-SYNC.md) | Estado compartido con estacion-inmobiliaria; bucket/prefijo OCI (rellenar). |

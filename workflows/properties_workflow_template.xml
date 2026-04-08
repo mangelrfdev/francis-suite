@@ -1,0 +1,278 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<francis-workflow>
+
+    <!--
+        Template: property listings from search/list cards only (no detail pages).
+
+        Contract: `listing` group matches record_pipeline_minimal / integrations spec.
+        Output: output/${run_dir}/ with LISTINGS_<SHORT>.NDJSON + RUN_MANIFEST.JSON (OCI handoff).
+
+        Section A: set URLs, XPaths, and placeholders for your portal. Defaults use books.toscrape
+        list markup so the workflow runs before you plug a real site.
+
+        Twin: examples/demos/properties_workflow_template.xml
+    -->
+
+    <shared-box-def name="ingestion_run_id" replace="false">local-dev</shared-box-def>
+    <shared-box-def name="run_utc" replace="false">nodate</shared-box-def>
+    <shared-box-def name="run_short_id" replace="false">local</shared-box-def>
+    <shared-box-def name="source" replace="false">template_portal</shared-box-def>
+
+    <box-def name="workflow_key">properties_workflow_template</box-def>
+    <box-def name="scraper_name">properties_workflow_template</box-def>
+    <box-def name="case_key">template-scaffold</box-def>
+
+    <box-def name="run_dir">
+        <compose>${source.toUpperCase()}_${run_utc.toUpperCase()}_${run_short_id.toUpperCase()}</compose>
+    </box-def>
+
+    <!-- === A) Portal tuning (defaults: books.toscrape catalogue list shape) === -->
+
+    <box-def name="baseUrl">http://books.toscrape.com/catalogue/</box-def>
+    <box-def name="currentListPageUrl">http://books.toscrape.com/catalogue/page-1.html</box-def>
+    <box-def name="hasNextPage">true</box-def>
+    <box-def name="paginationNumber">0</box-def>
+    <box-def name="listingRowCounter">0</box-def>
+
+    <box-def name="sleepMsBetweenPages">1000</box-def>
+
+    <!-- Max listing rows to collect this run (per scraper / source). Raise for full scrapes; keep low to respect sources. -->
+    <box-def name="maxListingRecordsPerRun">25</box-def>
+
+    <!-- XPath: one node per result card on the list page (superficial scrape). -->
+    <box-def name="xpathListingCardRoot">//article[@class='product_pod']</box-def>
+
+    <!-- Relative XPaths on each card (evaluated against the current loop node). -->
+    <box-def name="xpathRelativeListingHref">.//h3/a/@href</box-def>
+    <box-def name="xpathListingTitle">.//h3/a/@title</box-def>
+    <box-def name="xpathListingPriceText">.//p[@class='price_color']/text()</box-def>
+
+    <!-- Optional: advertiser / corredora on the list card (portal-specific). Dummy XPath: empty on books.toscrape demo. -->
+    <box-def name="xpathListingPublisherText">.//span[@class='listing_publisher_demo_only']</box-def>
+
+    <!-- Pagination: next link on full-page DOM, or empty when there is no next page. -->
+    <box-def name="xpathNextPageHref">//li[@class='next']/a/@href</box-def>
+
+    <!-- When the list card does not expose full property fields, use placeholders.
+         Chile listings: currency is UF or CLP; `placeholderCurrency` (default CLP) applies when the raw price text has no UF/CLP marker. -->
+    <box-def name="placeholderCurrency">CLP</box-def>
+    <box-def name="placeholderPropertyType">unknown</box-def>
+    <box-def name="placeholderOperationType">unknown</box-def>
+    <box-def name="placeholderComunaOrRegion">unknown</box-def>
+    <box-def name="placeholderBedrooms"></box-def>
+    <box-def name="placeholderBathrooms"></box-def>
+    <box-def name="placeholderSurface"></box-def>
+    <box-def name="placeholderPublishedAt"></box-def>
+    <!-- Shown when the card has no publisher XPath match (e.g. demo). Set per portal or fixed brand. -->
+    <box-def name="placeholderPublisherName"></box-def>
+
+    <!-- Row timestamp; replace with dynamic value if needed. -->
+    <box-def name="scrapedAtTimestamp">2026-04-02T18:00:00</box-def>
+
+    <record-create name="listingsRecords">
+        <record-metadata>
+            <metadata-add-field name="scraper_name">${scraper_name}</metadata-add-field>
+            <metadata-add-field name="case_key">${case_key}</metadata-add-field>
+            <metadata-add-field name="ingestion_run_id">${ingestion_run_id}</metadata-add-field>
+            <metadata-add-field name="run_utc">${run_utc}</metadata-add-field>
+            <metadata-add-field name="run_short_id">${run_short_id}</metadata-add-field>
+            <metadata-add-field name="run_dir">${run_dir}</metadata-add-field>
+            <metadata-add-field name="source">${source}</metadata-add-field>
+        </record-metadata>
+        <record-export-attr name="example">properties_workflow_template</record-export-attr>
+        <record-export-attr name="case_key">${case_key}</record-export-attr>
+        <record-export-attr name="source">${source}</record-export-attr>
+        <record-export-system name="session_id"/>
+        <record-export-system name="exported_at"/>
+        <record-export-system name="francis_suite_version"/>
+        <record-journal path="output/${run_dir}/PROPERTIES_${run_short_id.toUpperCase()}.JOURNAL.NDJSON" fsync="false"/>
+        <record-xml-root-attr name="dataset">properties_listings_template</record-xml-root-attr>
+        <record-xml-record-attr name="id" from-field="listing.external_id" required="true"/>
+        <record-xml-record-attr name="url" from-field="listing.source_url" required="false"/>
+        <record-set-group name="listing" required="true">
+            <record-set-field name="workflow_key" type="string" required="true"/>
+            <record-set-field name="source" type="string" required="true"/>
+            <record-set-field name="external_id" type="string" required="true"/>
+            <record-set-field name="title" type="string" required="true"/>
+            <record-set-field name="price" type="decimal" required="true"/>
+            <record-set-field name="currency" type="string" required="true"/>
+            <record-set-field name="property_type" type="string" required="true"/>
+            <record-set-field name="operation_type" type="string" required="true"/>
+            <record-set-field name="comuna" type="string" required="true"/>
+            <record-set-field name="bedrooms" type="integer" required="false" null-if-empty="true"/>
+            <record-set-field name="bathrooms" type="integer" required="false" null-if-empty="true"/>
+            <record-set-field name="surface" type="decimal" required="false" null-if-empty="true"/>
+            <record-set-field name="image_url" type="url" required="false" null-if-empty="true"/>
+            <record-set-field name="source_url" type="url" required="true"/>
+            <record-set-field name="publisher_name" type="string" required="false" null-if-empty="true"/>
+            <record-set-field name="published_at" type="datetime" required="false" null-if-empty="true"/>
+            <record-set-field name="scraped_at" type="datetime" required="false" null-if-empty="true"/>
+        </record-set-group>
+        <record-key>
+            <key-field name="workflow_key"/>
+            <key-field name="source"/>
+            <key-field name="external_id"/>
+        </record-key>
+    </record-create>
+
+    <file-write path="output/${run_dir}/PROPERTIES_${run_short_id.toUpperCase()}_SCRAPE.LOG.TXT" mkdir="true"> </file-write>
+
+    <!-- Must exceed possible list pages until nextPageHref is empty (books.toscrape has many pages). Lower sleepMsBetweenPages to speed up local runs. -->
+    <while condition="${hasNextPage.toBoolean()}" max-loops="100">
+
+        <box-def name="paginationNumber">
+            <evaluate>${paginationNumber} + 1</evaluate>
+        </box-def>
+
+        <log>List page ${paginationNumber}: ${currentListPageUrl}</log>
+
+        <box-def name="listPageHtml">
+            <httpx-call url="${currentListPageUrl}"/>
+        </box-def>
+
+        <box-def name="listPageDomXml">
+            <convert-html-to-xml>${listPageHtml}</convert-html-to-xml>
+        </box-def>
+
+        <box-def name="listingCardNodes">
+            <xpath-extract expression="${xpathListingCardRoot}">${listPageDomXml}</xpath-extract>
+        </box-def>
+
+        <loop item="listingCard" index="listingCardIndex">
+            <loop-list>
+                <box name="listingCardNodes"/>
+            </loop-list>
+            <loop-body>
+                <if condition="${listingRowCounter} &lt; ${maxListingRecordsPerRun}">
+                <box-def name="relativeListingHref">
+                    <xpath-extract expression="${xpathRelativeListingHref}">${listingCard}</xpath-extract>
+                </box-def>
+                <box-def name="listingTitleText">
+                    <xpath-extract expression="${xpathListingTitle}">${listingCard}</xpath-extract>
+                </box-def>
+                <box-def name="listingPriceRawText">
+                    <xpath-extract expression="${xpathListingPriceText}">${listingCard}</xpath-extract>
+                </box-def>
+
+                <box-def name="listingPublisherRaw">
+                    <xpath-extract expression="${xpathListingPublisherText}">${listingCard}</xpath-extract>
+                </box-def>
+                <if condition="${listingPublisherRaw.isEmpty()}">
+                    <box-def name="listingPublisherName">${placeholderPublisherName}</box-def>
+                </if>
+                <else>
+                    <box-def name="listingPublisherName">
+                        <evaluate>${listingPublisherRaw.trim()}</evaluate>
+                    </box-def>
+                </else>
+
+                <!-- Chile: currency is UF or CLP only (UF wins if both appear). Otherwise use placeholderCurrency (typically CLP). -->
+                <box-def name="priceTextUpper">
+                    <evaluate>${listingPriceRawText}.toUpperCase()</evaluate>
+                </box-def>
+                <box-def name="resolvedCurrency">${placeholderCurrency}</box-def>
+                <if condition="${priceTextUpper}.contains(&quot;UF&quot;)">
+                    <box-def name="resolvedCurrency">UF</box-def>
+                </if>
+                <if condition="${priceTextUpper}.contains(&quot;CLP&quot;) and not ${priceTextUpper}.contains(&quot;UF&quot;)">
+                    <box-def name="resolvedCurrency">CLP</box-def>
+                </if>
+
+                <!-- Strip UF/CLP/peso symbol for decimal `price` (Chile). One ${var.method(...)} per step avoids float coercion bugs. -->
+                <box-def name="priceStrippedForDecimal">
+                    <evaluate>${listingPriceRawText.trim()}</evaluate>
+                </box-def>
+                <box-def name="priceStrippedForDecimal">
+                    <evaluate>${priceStrippedForDecimal.replace("UF","")}</evaluate>
+                </box-def>
+                <box-def name="priceStrippedForDecimal">
+                    <evaluate>${priceStrippedForDecimal.replace("uf","")}</evaluate>
+                </box-def>
+                <box-def name="priceStrippedForDecimal">
+                    <evaluate>${priceStrippedForDecimal.replace("CLP","")}</evaluate>
+                </box-def>
+                <box-def name="priceStrippedForDecimal">
+                    <evaluate>${priceStrippedForDecimal.replace("$","")}</evaluate>
+                </box-def>
+                <box-def name="priceStrippedForDecimal">
+                    <evaluate>${priceStrippedForDecimal.replace(" ","")}</evaluate>
+                </box-def>
+                <box-def name="priceStrippedForDecimal">
+                    <evaluate>${priceStrippedForDecimal.trim()}</evaluate>
+                </box-def>
+
+                <box-def name="listingRowCounter">
+                    <evaluate>${listingRowCounter} + 1</evaluate>
+                </box-def>
+
+                <box-def name="absoluteListingUrl">
+                    <compose>${baseUrl}${relativeListingHref}</compose>
+                </box-def>
+
+                <box-def name="listingExternalIdKey">
+                    <compose>listing-${listingRowCounter}</compose>
+                </box-def>
+
+                <file-write path="output/${run_dir}/PROPERTIES_${run_short_id.toUpperCase()}_SCRAPE.LOG.TXT" append="true" newline="true">${listingRowCounter} | ${listingExternalIdKey} | ${listingTitleText}</file-write>
+
+                <record-add to="listingsRecords">
+                    <record-add-group name="listing">
+                        <record-add-field name="workflow_key">${workflow_key}</record-add-field>
+                        <record-add-field name="source">${source}</record-add-field>
+                        <record-add-field name="external_id">${listingExternalIdKey}</record-add-field>
+                        <record-add-field name="title">${listingTitleText}</record-add-field>
+                        <record-add-field name="price">${priceStrippedForDecimal}</record-add-field>
+                        <record-add-field name="currency">${resolvedCurrency}</record-add-field>
+                        <record-add-field name="property_type">${placeholderPropertyType}</record-add-field>
+                        <record-add-field name="operation_type">${placeholderOperationType}</record-add-field>
+                        <record-add-field name="comuna">${placeholderComunaOrRegion}</record-add-field>
+                        <record-add-field name="bedrooms">${placeholderBedrooms}</record-add-field>
+                        <record-add-field name="bathrooms">${placeholderBathrooms}</record-add-field>
+                        <record-add-field name="surface">${placeholderSurface}</record-add-field>
+                        <record-add-field name="image_url"></record-add-field>
+                        <record-add-field name="source_url">${absoluteListingUrl}</record-add-field>
+                        <record-add-field name="publisher_name">${listingPublisherName}</record-add-field>
+                        <record-add-field name="published_at">${placeholderPublishedAt}</record-add-field>
+                        <record-add-field name="scraped_at">${scrapedAtTimestamp}</record-add-field>
+                    </record-add-group>
+                </record-add>
+                </if>
+            </loop-body>
+        </loop>
+
+        <box-def name="nextPageHref">
+            <xpath-extract expression="${xpathNextPageHref}">${listPageDomXml}</xpath-extract>
+        </box-def>
+
+        <if condition="${listingRowCounter} &gt;= ${maxListingRecordsPerRun}">
+            <box-def name="hasNextPage">false</box-def>
+            <log>Stopped: reached maxListingRecordsPerRun (${maxListingRecordsPerRun}).</log>
+        </if>
+        <else>
+            <if condition="${nextPageHref.isEmpty()}">
+                <box-def name="hasNextPage">false</box-def>
+            </if>
+            <else>
+                <box-def name="currentListPageUrl">
+                    <compose>${baseUrl}${nextPageHref}</compose>
+                </box-def>
+                <log>Next list URL: ${currentListPageUrl}</log>
+            </else>
+        </else>
+
+        <sleep ms="${sleepMsBetweenPages}"/>
+    </while>
+
+    <log>Done — output/${run_dir}/ (LISTINGS_${run_short_id.toUpperCase()}.NDJSON)</log>
+
+    <record-save from="listingsRecords" format="ndjson" path="output/${run_dir}/LISTINGS_${run_short_id.toUpperCase()}.NDJSON" include-metadata="false"/>
+    <record-save from="listingsRecords" format="json" path="output/${run_dir}/PROPERTIES_${run_short_id.toUpperCase()}.JSON" include-metadata="true"/>
+    <record-save from="listingsRecords" format="csv" path="output/${run_dir}/PROPERTIES_${run_short_id.toUpperCase()}.CSV" include-metadata="false"/>
+
+    <record-save-metadata from="listingsRecords" path="output/${run_dir}/LISTINGSRECORDS_PRIVATE_METADATA_${run_short_id.toUpperCase()}.JSON"/>
+
+    <file-write path="output/${run_dir}/RUN_MANIFEST.JSON">
+        <compose>{"schema_version":"1","francis_workflow":"properties_workflow_template","description":"Superficial list scrape. primary_ndjson: NDJSON with export line then listing rows.","ingestion_run_id":"${ingestion_run_id}","run_dir":"${run_dir}","run_utc":"${run_utc}","run_short_id":"${run_short_id}","source":"${source}","output_folder_relative":"output/${run_dir}","files":{"primary_ndjson":"LISTINGS_${run_short_id.toUpperCase()}.NDJSON","private_metadata_json":"LISTINGSRECORDS_PRIVATE_METADATA_${run_short_id.toUpperCase()}.JSON","journal_ndjson":"PROPERTIES_${run_short_id.toUpperCase()}.JOURNAL.NDJSON","exports_glob":"PROPERTIES_${run_short_id.toUpperCase()}.*"}}</compose>
+    </file-write>
+
+</francis-workflow>

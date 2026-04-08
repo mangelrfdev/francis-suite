@@ -90,7 +90,24 @@ Marcalos a medida que avanzás.
 
 ---
 
-## Parte D — Si GCP volvés más adelante
+## Parte D — Salida lista para el job de ingesta (VM + `docker-compose.ocir.yml`)
+
+Después de una corrida exitosa, el **contrato mínimo** para **estacion-inmobiliaria** (o sync a bucket) es:
+
+| Artefacto | Rol |
+|-----------|-----|
+| `BOOKS_*/LISTINGS_<SHORT>.NDJSON` (o el prefijo que use el workflow) | Líneas NDJSON con `_type` / campos alineados al esquema de ingesta. |
+| `BOOKS_*/RUN_MANIFEST.JSON` | Metadatos de corrida (timestamps, `run_short_id`, paths relativos si el workflow los escribe). |
+
+**Ruta típica en la VM:** `~/francis-run/docker-output/<carpeta_de_corrida>/`.
+
+**Permisos:** el `docker-compose.ocir.yml` del repo define `user: "${DOCKER_UID:-1000}:${DOCKER_GID:-1000}"` para que los archivos **no** queden como `root`. En `.env` de la VM podés fijar `DOCKER_UID` / `DOCKER_GID` a lo que devuelve `id -u` / `id -g`. Si alguna corrida anterior quedó en `root:root`, una vez: `sudo chown -R ubuntu:ubuntu ~/francis-run/docker-output`.
+
+**Siguiente paso hacia producción:** subir el NDJSON (y opcionalmente el manifiesto) a **Object Storage** con un prefijo estable (ver convención de paths en `08-GCP-PIPELINE-Y-JOB-INGESTA.md`) y que el job lea desde ahí o por URL firmada.
+
+---
+
+## Parte E — Si GCP volvés más adelante
 
 El mismo `Dockerfile` sirve en **Artifact Registry** + **Cloud Run Job**; solo cambia dónde subís la imagen y quién dispara el contenedor. OCI y GCP comparten el **mismo modelo mental**.
 

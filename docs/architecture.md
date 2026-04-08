@@ -165,6 +165,8 @@ rows_fallidos, campos_nulos_total, porcentaje_completitud
 + campos agregados via <record-private-metadata>
 ```
 
+After each run, the runtime persists private metadata for each `FRecord` under `sessions/<session_id>/` unless `FRANCIS_AUTO_RECORD_METADATA` disables it. See **guides/run-output-and-integration.md** for how this relates to `record-save`, journal, and orchestration.
+
 ---
 
 ## core/nodes.py ✅

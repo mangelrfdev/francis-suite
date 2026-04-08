@@ -48,6 +48,7 @@ Cada línea del NDJSON (o fila CSV) debe incluir al menos:
 | `surface` | number \| null | m² o null. |
 | `image_url` | string \| null | HTTPS absoluta. |
 | `source_url` | string | URL pública del aviso (obligatorio). |
+| `publisher_name` | string \| null | Nombre visible del publicador en el portal (corredora, marca, etc.); atribución en UI. |
 | `published_at` | string \| null | ISO 8601 si existe. |
 
 **Opcionales generados en pipeline:**

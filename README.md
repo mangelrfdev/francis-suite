@@ -15,7 +15,7 @@ cd francis-suite
 uv sync
 
 # Run a workflow
-francis-suite run examples/books_scraper.xml
+francis-suite run examples/demos/books_scraper.xml
 ```
 
 ## Docker
@@ -35,19 +35,25 @@ Outputs appear under `./docker-output/` on the host.
 
 **Workflows outside the repo:** copy `.env.example` → `.env`, set `WORKFLOWS_HOST_PATH=C:/your/path`, put `.xml` there, then `docker compose run --rm francis francis-suite run workflows/your.xml`. See **`workflows/README.md`**.
 
-Official demos stay under **`examples/`** for local `uv run` only.
+Official demos stay under **`examples/demos/`** (brokers / product under **`examples/corredoras/`**) for local `uv run` only. See **`examples/README.md`**.
 
 ## Examples
 
 | File | What it shows |
 |------|----------------|
-| `examples/books_scraper.xml` | Single page, loop + `<log>` (minimal; see comments for full record pipeline) |
-| `examples/books_all_pages.xml` | Paginated scrape + `record-create` (`record-export-*`, optional `record-journal`, `record-xml-*` for XML) + **eight** `<record-save>` → `output/books.*` |
-| `examples/all_books_pages.xml` | Run folder `output/{SOURCE}_{UTC}_{SHORT}/` (CAPS via `toUpperCase`; params from shell; default folder `BOOKS_TOSCRAPE_NODATE_LOCAL`). NDJSON: `LISTINGS_{SHORT}.NDJSON`. Private metadata: `BOOKSRECORDS_PRIVATE_METADATA_{SHORT}.JSON`. See `workflows/README.md`. |
-| `examples/test_boolean.xml`, `examples/test_sensitive.xml` | Tiny workflows for conditions / sensitive masking |
-| `examples/record_pipeline_minimal.xml` | Same record patterns as `all_books_pages` (metadata, journal, xml attrs, multi-format `record-save`) + duplicates + private metadata; sample property rows |
+| `examples/demos/books_scraper.xml` | Single page, loop + `<log>` (minimal; see comments for full record pipeline) |
+| `examples/demos/books_all_pages.xml` | Paginated scrape + `record-create` (`record-export-*`, optional `record-journal`, `record-xml-*` for XML) + **eight** `<record-save>` → `output/books.*` |
+| `examples/demos/all_books_pages.xml` | Run folder `output/{SOURCE}_{UTC}_{SHORT}/` (CAPS via `toUpperCase`; params from shell; default folder `BOOKS_TOSCRAPE_NODATE_LOCAL`). NDJSON: `LISTINGS_{SHORT}.NDJSON`. Private metadata: `BOOKSRECORDS_PRIVATE_METADATA_{SHORT}.JSON`. See `workflows/README.md`. |
+| `examples/demos/test_boolean.xml`, `examples/demos/test_sensitive.xml` | Tiny workflows for conditions / sensitive masking |
+| `examples/demos/record_pipeline_minimal.xml` | Same record patterns as `all_books_pages` (metadata, journal, xml attrs, multi-format `record-save`) + duplicates + private metadata; sample property rows |
+| `examples/demos/properties_workflow_template.xml` | **Template** for property scrapers: `listing` contract + `run_dir` + `LISTINGS_{SHORT}.NDJSON` + `RUN_MANIFEST.JSON` (twin: `workflows/properties_workflow_template.xml`) |
+| `examples/corredoras/` | Broker / portal-specific workflows (e.g. property debug). |
 
 Full **record-save** reference (formats, attributes, samples): [docs/guides/record-save.md](docs/guides/record-save.md).
+
+**Portfolio / scraping — cómo comunicar decisiones** (Estación Inmobiliaria, entrevistas): [docs/guides/portfolio-scraping-communication.md](docs/guides/portfolio-scraping-communication.md).
+
+**Salida de un run, artefactos e integración** (motor vs workflow, `sessions/`, journal, convenciones): [docs/guides/run-output-and-integration.md](docs/guides/run-output-and-integration.md).
 
 **Índice de toda la documentación:** [docs/README.md](docs/README.md).
 
@@ -164,10 +170,16 @@ schema/           # generated: francis-workflow.xsd, francis-workflow.schema.jso
 integrations/web/ # optional: specs for a consumer product (e.g. web app); not core framework
 templates/        # reusable Cursor/Claude rule snippets for any project
 examples/
-├── books_scraper.xml
-├── books_all_pages.xml
-├── test_boolean.xml
-└── test_sensitive.xml
+├── README.md
+├── demos/                 # official tutorials & templates (books, tests, record pipeline)
+│   ├── books_scraper.xml
+│   ├── books_all_pages.xml
+│   ├── all_books_pages.xml
+│   ├── record_pipeline_minimal.xml
+│   ├── properties_workflow_template.xml
+│   ├── test_boolean.xml
+│   └── test_sensitive.xml
+└── corredoras/            # broker / portal workflows (product-specific)
 ```
 
 ## Core Hands (partial list)

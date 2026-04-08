@@ -29,7 +29,7 @@ Copiá o pedí en el repo del **sitio web**:
 
 ## 6. Fechas en `record-set-field` tipo `datetime` (Francis)
 
-- En el engine, valores como `YYYY-MM-DDTHH:MM:SS` **sin** sufijo `+00:00` en el XML (ver `examples/record_pipeline_minimal.xml`).
+- En el engine, valores como `YYYY-MM-DDTHH:MM:SS` **sin** sufijo `+00:00` en el XML (ver `examples/demos/record_pipeline_minimal.xml`).
 - El job de ingesta puede convertir a `timestamptz` en Postgres según convenga.
 
 ---
@@ -62,4 +62,6 @@ Cuando el equipo del **sitio web** ya respondió, los artefactos suelen estar **
 
 > En estacion-inmobiliaria: `docs/FRANCIS_SCHEMA_PROPERTIES.md`, migraciones `supabase/migrations/20260401100000_*.sql` y `20260401120000_*.sql`, tipos en `lib/types.ts`. NDJSON con snake_case igual que la tabla; único `(source, external_id)`; currency CLP|UF, property_type departamento|casa, operation_type arriendo|venta. Ajustar `record-create` en francis-suite a eso.
 
-**Nota:** `examples/record_pipeline_minimal.xml` ya usa esos campos y enums de ejemplo; compará nombres exactos con la migración real (si difieren, renombrá `record-set-field` o mapeá en el job de ingesta). Material de producto web: carpeta **`integrations/web/`** en francis-suite.
+**Nota:** `examples/demos/record_pipeline_minimal.xml` ya usa esos campos y enums de ejemplo; compará nombres exactos con la migración real (si difieren, renombrá `record-set-field` o mapeá en el job de ingesta). Material de producto web: carpeta **`integrations/web/`** en francis-suite.
+
+**Campo opcional `publisher_name`:** guía paso a paso (SQL, TS, ingesta, UI) en **`PUBLISHER_NAME-ROLLOUT.md`**.

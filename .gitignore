@@ -41,6 +41,9 @@ logs/
 # Private operational docs (OCIR paths, runbooks); not committed — see docs/README.md
 docs/private/
 
+# Examples / local workflows (do not push)
+examples/
+
 # Francis Suite runtime
 sessions/
 output/

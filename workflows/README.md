@@ -4,7 +4,7 @@ The **Docker image does not include any workflows**. XML always comes from a **h
 
 ## Folder inside this repo (default)
 
-`docker-compose.yml` defaults to `./workflows` (this directory). Copy `examples/record_pipeline_minimal.xml` here as `record_pipeline_minimal.xml` if you want the default `CMD` to work without changing anything.
+`docker-compose.yml` defaults to `./workflows` (this directory). Copy `examples/demos/record_pipeline_minimal.xml` here as `record_pipeline_minimal.xml` if you want the default `CMD` to work without changing anything.
 
 ## Folder **outside** francis-suite (recommended for you)
 

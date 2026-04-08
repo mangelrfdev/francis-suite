@@ -71,7 +71,7 @@ python -m francis_suite schema --out schema
 {
   "xml.fileAssociations": [
     {
-      "pattern": "**/examples/*.xml",
+      "pattern": "**/examples/**/*.xml",
       "systemId": "${workspaceFolder}/schema/francis-workflow.xsd"
     }
   ]

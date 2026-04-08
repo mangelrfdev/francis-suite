@@ -20,6 +20,8 @@
 | [file_manage.md](guides/file_manage.md) | `file-manage` |
 | [converts.md](guides/converts.md) | Hands de conversión |
 | [workflow-schema.md](guides/workflow-schema.md) | Generar `schema/francis-workflow.xsd` y manifest JSON; uso en el editor; Windows |
+| [portfolio-scraping-communication.md](guides/portfolio-scraping-communication.md) | Portafolio (Estación + Francis): decisiones de datos, marco del scraping, guion para reclutadores, enlaces a specs |
+| [run-output-and-integration.md](guides/run-output-and-integration.md) | Qué hace el motor vs el XML: sesión, records, journal, `sessions/`, `record-save`, convención de carpetas, integración con jobs / inyector |
 
 ## Integraciones (producto que consume Francis)
 
@@ -35,6 +37,12 @@
 | [templates/claude/](../templates/claude/README.md) | Instrucciones personalizadas + plantilla de contexto inicial para chats en Claude |
 | [templates/user-rules-cursor-example.md](../templates/user-rules-cursor-example.md) | Ejemplo para pegar en User Rules globales de Cursor (tono cálido + criterios generales) |
 
+## Feedback / notas personales (`feedback/`)
+
+| Archivo | Contenido |
+|---------|-----------|
+| [feedback/work-style-self-notes.md](feedback/work-style-self-notes.md) | Fortalezas y áreas a vigilar (estilo de trabajo); derivado de reflexión en proyecto; opcional mover a `docs/private/` si no va al remoto |
+
 ## Documentación privada (`docs/private/`)
 
 La carpeta **`docs/private/`** está en **`.gitignore`**: sirve para tutoriales operativos (Docker, OCIR, runbooks) que **no** deben subirse al remoto. Crea ahí tus `.md` en local; un `git clone` **no** trae esos archivos.
@@ -43,4 +51,4 @@ En tu copia de trabajo puedes tener p. ej. `docs/private/docker-oracle-ocir.md` 
 
 ## Ejemplos en el repo
 
-Ver `examples/` en la raíz del proyecto y la tabla en el [README principal](../README.md#examples).
+Ver `examples/README.md` y la tabla en el [README principal](../README.md#examples) (`examples/demos/`, `examples/corredoras/`).

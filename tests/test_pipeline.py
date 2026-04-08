@@ -2546,6 +2546,37 @@ def test_record_add_null_if_empty():
     assert record.last_row["item"]["marca"] is None
 
 
+def test_record_add_null_literal_in_optional_field():
+    """Optional fields: raw string NULL (from workflow box-def) normalizes to None."""
+    xml = """
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string" required="true"/>
+                <record-set-field name="surface" type="decimal" required="false" null-if-empty="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">X</record-add-field>
+                <record-add-field name="surface">NULL</record-add-field>
+            </record-add-group>
+        </record-add>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-record-null-literal")
+
+    assert session.status == SessionStatus.COMPLETED
+    from francis_suite.core.records import FRecord
+
+    record = session.context.get_shared_box("testRecords")
+    assert record.last_row["item"]["surface"] is None
+
+
 def test_record_add_uuid_generates_if_empty():
     """record-add should generate UUID when field is empty and type is uuid."""
     xml = """
@@ -3684,3 +3715,34 @@ def test_record_export_system_status_hide_when_completed(tmp_path):
     assert session.status == SessionStatus.COMPLETED
     data = json.loads(out.read_text(encoding="utf-8"))
     assert "status_process" not in data["_export"]
+
+
+def test_expression_replace_comma_inside_quotes():
+    """replace(",", ".") must not split on the comma inside quoted strings."""
+    from francis_suite.core.context import FContext
+    from francis_suite.core.expressions import FrancisExpression, _split_method_args
+    from francis_suite.core.variables import FNodeVariable
+
+    # Args inside replace(",", ".") — comma between quoted strings (7 chars). Use chr() to avoid smart quotes in source.
+    replace_comma_dot_args = "".join(
+        (chr(34), chr(44), chr(34), chr(44), chr(34), chr(46), chr(34))
+    )
+    assert _split_method_args(replace_comma_dot_args) == [",", "."]
+    assert _split_method_args(chr(34) + "a" + chr(34) + "," + chr(34) + "b" + chr(34)) == ["a", "b"]
+
+    ctx = FContext()
+    ctx.set("surface_sanitized", FNodeVariable("80,5"))
+    eng = FrancisExpression(ctx)
+    surface_expr = (
+        "surface_sanitized.replace("
+        + chr(34)
+        + ","
+        + chr(34)
+        + ","
+        + chr(34)
+        + "."
+        + chr(34)
+        + ")"
+    )
+    v = eng._eval_expr(surface_expr)
+    assert str(v) == "80.5"

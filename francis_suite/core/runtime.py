@@ -26,7 +26,7 @@ from francis_suite.core.events import (
     HandFailedEvent,
 )
 from francis_suite.core.expressions import FrancisExpression
-from francis_suite.core.variables import FVariable, FEmptyVariable
+from francis_suite.core.variables import FVariable, FEmptyVariable, FNodeVariable
 from francis_suite.hands.core.exit_ import ExitWorkflow
 # Register all built-in hands
 import francis_suite.hands  # noqa: F401
@@ -117,6 +117,24 @@ class FRuntime:
             session = runtime.run_session(root, session)
         """
         session.start()
+
+        # UTC timestamp when the run began (YYYY-MM-DDTHH:MM:SS), for workflows that need a real
+        # clock without hardcoding. Available as ${francis_session_started_at_utc}. CLI --param
+        # can still override names like scrapedAtTimestamp via shared-box-def replace="false".
+        st = session.started_at
+        if st is not None:
+            session.context.set_shared_box(
+                "francis_session_started_at_utc",
+                FNodeVariable(st.strftime("%Y-%m-%dT%H:%M:%S")),
+            )
+
+        # Short unique folder token (no date): first 8 hex chars of session UUID. Use in compose as
+        # ${francis_run_dir_suffix} e.g. SCRAPER_UPPERCASE_${francis_run_dir_suffix}
+        rid = session.id.replace("-", "")
+        session.context.set_shared_box(
+            "francis_run_dir_suffix",
+            FNodeVariable(rid[:8].upper()),
+        )
 
         session.liveness.configure_from_root(root)
         session.liveness.on_session_start()

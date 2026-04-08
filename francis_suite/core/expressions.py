@@ -29,6 +29,39 @@ from francis_suite.core.context import FContext
 _VAR_PATTERN = re.compile(r"\$\{([^}]+)\}")
 
 
+def _split_method_args(args_str: str) -> list[str]:
+    """
+    Split comma-separated method arguments, respecting double- and single-quoted strings.
+    Needed for e.g. replace(",", ".") — naive split(",") would break on the comma inside quotes.
+    """
+    parts: list[str] = []
+    cur: list[str] = []
+    i = 0
+    in_quote = False
+    quote_char = ""
+    while i < len(args_str):
+        c = args_str[i]
+        if not in_quote:
+            if c in ('"', "'"):
+                in_quote = True
+                quote_char = c
+                cur.append(c)
+            elif c == ",":
+                parts.append("".join(cur).strip())
+                cur = []
+            else:
+                cur.append(c)
+        else:
+            cur.append(c)
+            if c == quote_char:
+                in_quote = False
+                quote_char = ""
+        i += 1
+    if cur:
+        parts.append("".join(cur).strip())
+    return [p.strip().strip('"').strip("'") for p in parts]
+
+
 class FrancisString(str):
     """
     A string subclass that exposes helper methods for use in expressions.
@@ -177,7 +210,7 @@ class FrancisExpression:
                 raise AttributeError(f"Unknown method '{method}' on string")
 
             if args_str:
-                args = [a.strip().strip('"').strip("'") for a in args_str.split(",")]
+                args = _split_method_args(args_str)
                 return getattr(fs, method)(*args)
             else:
                 return getattr(fs, method)()

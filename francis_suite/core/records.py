@@ -1034,6 +1034,7 @@ class FRecord(FVariable):
         *,
         data_rows: list[dict] | None = None,
         include_metadata: bool = False,
+        clean_data: bool = False,
         session=None,
         sheet_name: str = "Data",
         metadata_sheet_name: str = "Metadata",
@@ -1059,6 +1060,11 @@ class FRecord(FVariable):
             data_rows:              if set, serialize these rows instead of primary _rows (duplicate-key
                                     export via record-save-duplicates). include_metadata must be False.
             include_metadata:       if True, embeds public metadata where the format supports it
+            clean_data:             if True, omit export/session lines and public metadata from the
+                                    serialized file (CSV # lines, NDJSON export/metadata lines,
+                                    JSON _export/_metadata wrappers, HTML/Excel export sections,
+                                    Parquet francis_export key, etc.). Overrides include-metadata
+                                    for output framing.
             session:                FrancisSession — workflow name and metadata fields
             sheet_name:             excel — main data sheet name
             metadata_sheet_name:    excel — second sheet for public metadata (if include_metadata)
@@ -1072,6 +1078,9 @@ class FRecord(FVariable):
                 "[RECORD] include-metadata is not supported when saving duplicate-key rows "
                 "(use <record-save> for public metadata; <record-save-duplicates> omits it)."
             )
+
+        clean_data_flag = clean_data
+        effective_include_metadata = include_metadata and not clean_data_flag
 
         effective_rows = self._rows if data_rows is None else data_rows
         if not effective_rows:
@@ -1092,6 +1101,10 @@ class FRecord(FVariable):
                 xa["exported_at"] = datetime.now(timezone.utc).isoformat()
 
         xa = self._sanitize_export_for_format(fmt, xa)
+        if clean_data_flag:
+            xa = {}
+
+        include_export_wrapper = (export_augmentation is not None) and not clean_data_flag
 
         if data_rows is None:
             row_suffix = ""
@@ -1108,32 +1121,32 @@ class FRecord(FVariable):
             self._save_json(
                 output_path,
                 effective_rows,
-                include_metadata=include_metadata,
+                include_metadata=effective_include_metadata,
                 session=session,
                 export_augmentation_payload=xa,
-                include_export_wrapper=export_augmentation is not None,
+                include_export_wrapper=include_export_wrapper,
             )
         elif fmt == "csv":
             self._save_csv(
                 output_path,
                 effective_rows,
-                include_metadata=include_metadata,
+                include_metadata=effective_include_metadata,
                 export_augmentation=xa,
             )
         elif fmt == "ndjson":
             self._save_ndjson(
                 output_path,
                 effective_rows,
-                include_metadata=include_metadata,
+                include_metadata=effective_include_metadata,
                 session=session,
                 export_augmentation_payload=xa,
-                include_export_wrapper=export_augmentation is not None,
+                include_export_wrapper=include_export_wrapper,
             )
         elif fmt == "xml":
             self._save_xml(
                 output_path,
                 effective_rows,
-                include_metadata=include_metadata,
+                include_metadata=effective_include_metadata,
                 session=session,
                 include_root_workflow=xml_include_root_workflow,
                 include_root_total_records=xml_include_root_total_records,
@@ -1148,7 +1161,7 @@ class FRecord(FVariable):
             self._save_html(
                 output_path,
                 effective_rows,
-                include_metadata=include_metadata,
+                include_metadata=effective_include_metadata,
                 session=session,
                 html_title=html_title,
                 export_augmentation=xa,
@@ -1157,14 +1170,14 @@ class FRecord(FVariable):
             self._save_txt(
                 output_path,
                 effective_rows,
-                include_metadata=include_metadata,
+                include_metadata=effective_include_metadata,
                 export_augmentation=xa,
             )
         elif fmt in ("excel", "xlsx"):
             self._save_excel(
                 output_path,
                 effective_rows,
-                include_metadata=include_metadata,
+                include_metadata=effective_include_metadata,
                 session=session,
                 sheet_name=sheet_name,
                 metadata_sheet_name=metadata_sheet_name,

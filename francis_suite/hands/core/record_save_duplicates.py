@@ -59,6 +59,7 @@ class RecordSaveDuplicatesHand(AbstractHand):
         metadata_sheet_name = engine.resolve(self.attr("metadata-sheet-name", "Metadata"))
         html_title_raw = self.attr("html-title", "")
         html_title = engine.resolve(html_title_raw) if html_title_raw.strip() else None
+        clean_data = self.attr("clean-data", "false").lower() == "true"
 
         record = self.context.get_shared_box(record_name)
 
@@ -123,6 +124,7 @@ class RecordSaveDuplicatesHand(AbstractHand):
             path,
             data_rows=dup_rows,
             include_metadata=False,
+            clean_data=clean_data,
             session=self.session,
             sheet_name=sheet_name,
             metadata_sheet_name=metadata_sheet_name,

@@ -224,6 +224,30 @@ def test_xpath_extract_gets_text():
     assert not result.is_empty()
     assert "Hola mundo" in result.to_string()
 
+
+def test_xpath_extract_string_typed_result_is_single_value_not_characters():
+    """normalize-space(string(...)) returns a scalar; must not split into one variable per character."""
+    from francis_suite.core.variables import FNodeVariable
+
+    xml_workflow = """
+    <francis-workflow>
+        <box-def name="resultado">
+            <xpath-extract expression="normalize-space(string(//h1))"><![CDATA[<html><body><h1>$800.000</h1></body></html>]]></xpath-extract>
+        </box-def>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+    root = parser.parse_string(xml_workflow)
+    session = runtime.run(root, workflow_name="test-xpath-string-scalar")
+
+    assert session.status == SessionStatus.COMPLETED
+    result = session.context.get("resultado")
+    assert isinstance(result, FNodeVariable)
+    assert result.to_string() == "$800.000"
+
+
 def test_loop_iterates_over_list():
     """loop should iterate over a list and execute children for each item."""
     xml = """
@@ -2929,6 +2953,55 @@ def test_record_save_json_export_from_record_create(tmp_path):
     assert len(data["data"]) == 1
 
 
+def test_record_save_clean_data_omits_export_and_csv_comments(tmp_path):
+    """clean-data=true omits record-export framing (NDJSON export line, CSV # lines, JSON _export)."""
+    out_csv = tmp_path / "clean.csv"
+    out_ndjson = tmp_path / "clean.ndjson"
+    out_json = tmp_path / "clean.json"
+
+    xml = f"""
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-export-attr name="example">demo</record-export-attr>
+            <record-export-system name="session_id"/>
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">X</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-save from="testRecords" format="csv" path="{out_csv.as_posix()}" clean-data="true"/>
+        <record-save from="testRecords" format="ndjson" path="{out_ndjson.as_posix()}" clean-data="true"/>
+        <record-save from="testRecords" format="json" path="{out_json.as_posix()}" clean-data="true"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-record-save-clean-data")
+
+    assert session.status == SessionStatus.COMPLETED
+
+    csv_text = out_csv.read_text(encoding="utf-8")
+    assert not any(line.strip().startswith("#") for line in csv_text.splitlines())
+    assert "nombre" in csv_text
+
+    nd_lines = out_ndjson.read_text(encoding="utf-8").strip().splitlines()
+    assert len(nd_lines) == 1
+    first = json.loads(nd_lines[0])
+    assert "_type" not in first
+    assert first.get("item", {}).get("nombre") == "X"
+
+    j = json.loads(out_json.read_text(encoding="utf-8"))
+    assert isinstance(j, list)
+    assert len(j) == 1
+    assert "_export" not in j
+
+
 def test_record_xml_record_attr_from_field(tmp_path):
     """record-xml-record-attr from-field: per-row value on <record>, independent of <Records> root."""
     output = tmp_path / "out.xml"
@@ -3746,3 +3819,22 @@ def test_expression_replace_comma_inside_quotes():
     )
     v = eng._eval_expr(surface_expr)
     assert str(v) == "80.5"
+
+
+def test_expression_no_float_coerce_chilean_thousands_single_dot():
+    """float('800.000') == 800.0 in Python — must not coerce; keep string for replace('.', '')."""
+    from francis_suite.core.context import FContext
+    from francis_suite.core.expressions import FrancisExpression
+    from francis_suite.core.variables import FNodeVariable
+
+    ctx = FContext()
+    ctx.set("price_sanitized", FNodeVariable("800.000"))
+    eng = FrancisExpression(ctx)
+    v = eng._eval_expr("price_sanitized.replace('.', '')")
+    assert str(v) == "800000"
+
+    ctx.set("x", FNodeVariable("82.5"))
+    assert float(eng._eval_expr("x")) == 82.5
+
+    ctx.set("y", FNodeVariable("3.000.000"))
+    assert str(eng._eval_expr("y.replace('.', '')")) == "3000000"

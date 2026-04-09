@@ -236,6 +236,9 @@ class RecordSaveHand(AbstractHand):
         path             (required): output file path. Supports ${variables}.
         include-metadata (optional): include public metadata in output. Default: false.
             For duplicate-key rows only, use <record-save-duplicates> (no include-metadata="true").
+        clean-data       (optional): if true, omit export/session framing and public metadata from
+            the file (CSV comment lines, NDJSON export/metadata lines, JSON wrappers, etc.).
+            Default: false. Takes precedence over include-metadata for what is written.
         sheet-name       (optional): excel — main sheet name (default: Data)
         metadata-sheet-name (optional): excel — sheet for public metadata (default: Metadata)
         html-title       (optional): html — page title and main heading (default: workflow name)
@@ -285,6 +288,7 @@ class RecordSaveHand(AbstractHand):
         fmt              = engine.resolve(self.require_attr("format"))
         path             = engine.resolve(self.require_attr("path"))
         include_metadata = self.attr("include-metadata", "false").lower() == "true"
+        clean_data = self.attr("clean-data", "false").lower() == "true"
         sheet_name         = engine.resolve(self.attr("sheet-name", "Data"))
         metadata_sheet_name = engine.resolve(self.attr("metadata-sheet-name", "Metadata"))
         html_title_raw     = self.attr("html-title", "")
@@ -330,6 +334,7 @@ class RecordSaveHand(AbstractHand):
             fmt,
             path,
             include_metadata=include_metadata,
+            clean_data=clean_data,
             session=self.session,
             sheet_name=sheet_name,
             metadata_sheet_name=metadata_sheet_name,

@@ -29,6 +29,45 @@ from francis_suite.core.context import FContext
 _VAR_PATTERN = re.compile(r"\$\{([^}]+)\}")
 
 
+def _looks_like_thousands_with_single_dot(s: str) -> bool:
+    """
+    True for patterns like 800.000 or 8.000 (CLP/EUR-style grouping).
+
+    Python's float('800.000') is 800.0, not 800000 — auto-coercing breaks
+    price sanitization chains (replace('.', '')).
+    """
+    if s.count(".") != 1:
+        return False
+    left, right = s.split(".", 1)
+    left_core = left.lstrip("-+")
+    return (
+        len(left_core) >= 1
+        and left_core.isdigit()
+        and right.isdigit()
+        and len(right) == 3
+    )
+
+
+def _try_parse_context_number(value: str) -> int | float | None:
+    """
+    Parse for arithmetic / comparisons. Returns None if value should stay a plain string.
+    """
+    s = value.strip()
+    if not s:
+        return None
+    if _looks_like_thousands_with_single_dot(s):
+        return None
+    if "." in s:
+        try:
+            return float(s)
+        except ValueError:
+            return None
+    try:
+        return int(s)
+    except ValueError:
+        return None
+
+
 def _split_method_args(args_str: str) -> list[str]:
     """
     Split comma-separated method arguments, respecting double- and single-quoted strings.
@@ -231,11 +270,8 @@ class FrancisExpression:
 
         # only attempt numeric conversion for real values, not masked ones
         if not display:
-            try:
-                if "." in value:
-                    return float(value)
-                return int(value)
-            except (ValueError, TypeError):
-                pass
+            parsed = _try_parse_context_number(value)
+            if parsed is not None:
+                return parsed
 
         return FrancisString(value)

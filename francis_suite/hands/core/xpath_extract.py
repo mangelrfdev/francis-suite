@@ -79,14 +79,28 @@ class XPathExtractHand(AbstractHand):
                 f"<xpath-extract> invalid XPath expression '{expression}': {e}"
             ) from e
 
-        if not results:
+        # Node-set → list. String/number/bool scalars are NOT lists; using len() on
+        # lxml's string result would iterate characters and break callers (e.g. normalize-space(...)).
+        if isinstance(results, list):
+            if len(results) == 0:
+                return FEmptyVariable()
+            if len(results) == 1:
+                return FNodeVariable(self._to_string(results[0]))
+            items = [FNodeVariable(self._to_string(r)) for r in results]
+            return FListVariable(items)
+
+        if isinstance(results, bool):
+            if not results:
+                return FEmptyVariable()
+            return FNodeVariable("true")
+        if isinstance(results, (int, float)):
+            if results == 0:
+                return FEmptyVariable()
+            return FNodeVariable(self._to_string(results))
+        s = self._to_string(results)
+        if s == "":
             return FEmptyVariable()
-
-        if len(results) == 1:
-            return FNodeVariable(self._to_string(results[0]))
-
-        items = [FNodeVariable(self._to_string(r)) for r in results]
-        return FListVariable(items)
+        return FNodeVariable(s)
 
     def _to_string(self, value) -> str:
         """Convert an XPath result to string."""

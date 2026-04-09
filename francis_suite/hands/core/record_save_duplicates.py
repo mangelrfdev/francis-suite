@@ -60,6 +60,15 @@ class RecordSaveDuplicatesHand(AbstractHand):
         html_title_raw = self.attr("html-title", "")
         html_title = engine.resolve(html_title_raw) if html_title_raw.strip() else None
         clean_data = self.attr("clean-data", "false").lower() == "true"
+        allow_nested = self.attr("allow-nested", "false").lower() == "true"
+        raw_prefix = self.attr("allow-prefix", "").strip()
+        raw_sufix_alias = self.attr("allow-sufix", "").strip()
+        if raw_prefix:
+            allow_prefix = raw_prefix.lower() in ("true", "1", "yes")
+        elif raw_sufix_alias:
+            allow_prefix = raw_sufix_alias.lower() in ("true", "1", "yes")
+        else:
+            allow_prefix = False
 
         record = self.context.get_shared_box(record_name)
 
@@ -125,6 +134,8 @@ class RecordSaveDuplicatesHand(AbstractHand):
             data_rows=dup_rows,
             include_metadata=False,
             clean_data=clean_data,
+            allow_nested=allow_nested,
+            allow_prefix=allow_prefix,
             session=self.session,
             sheet_name=sheet_name,
             metadata_sheet_name=metadata_sheet_name,

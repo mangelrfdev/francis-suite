@@ -109,6 +109,55 @@ Los flags booleanos en `record-save` (`xml-include-root-session-id`, etc.) **sum
 
 ---
 
+## Forma de los datos exportados (default limpio y opciones)
+
+Por **defecto**, el motor prepara un entregable **legible para hojas de cálculo, SQL y pipelines**: claves cortas, celdas sin saltos de línea “rotos”, y sin mezclar en el archivo la metadata de exportación si pedís solo datos.
+
+### Comportamiento por defecto (sin flags extra)
+
+1. **Aplanado con prefijo corto**  
+   Si todas las columnas vienen de un solo grupo (p. ej. solo `book.*`), se **quita ese prefijo común** en JSON, NDJSON, CSV, HTML, TXT, Excel y Parquet: `book.titulo` → columna **`titulo`**.  
+   Si hay **varios prefijos** (`listing.*` y `meta.*`, etc.), se **mantienen** las claves con punto para evitar colisiones.
+
+2. **Strings en celdas**  
+   En valores de texto se **normalizan** retornos de carro, saltos de línea y tabulaciones a espacios (y se colapsan espacios repetidos), para que CSV/TSV/Excel no generen filas fantasma ni líneas en blanco innecesarias.
+
+3. **JSON / NDJSON**  
+   Cada fila es un **objeto plano** con las claves ya acortadas (no un objeto anidado por grupo), salvo que actives `allow-nested` (ver abajo).
+
+**No afecta** al **`record-journal`**: el journal sigue usando el aplanado completo (`book.titulo` en `data`) para trazabilidad.
+
+### `clean-data="true"`
+
+Omite del archivo todo lo que no sean **filas de datos** cuando el formato lo permite:
+
+- **CSV / TXT:** sin líneas `# …` (metadata pública ni claves `record-export-*`).
+- **NDJSON:** sin línea inicial `{"_type":"export",…}` ni línea `metadata`.
+- **JSON:** sin envoltorios `_export` / `_metadata` (según combinación con `include-metadata`); en la práctica, salida mínima orientada a datos.
+- **HTML / Excel:** sin secciones/hojas **Export** (ni hoja **Metadata** pública cuando aplica).
+- **Parquet:** sin metadata de esquema `francis_export` para el bloque de exportación.
+
+**Prioridad:** si `clean-data="true"`, **no** se escribe la “caja” de metadata/export en el fichero aunque `include-metadata="true"`.
+
+Disponible en **`<record-save>`**, **`<record-save-duplicates>`** y **`<record-save-validation-errors>`**.
+
+### `allow-nested="true"`
+
+- **JSON y NDJSON:** cada fila se serializa con la **estructura anidada del record** (objetos por grupo), p. ej. `{"book":{"record_key":"…","titulo":"…"}}`, con strings saneados en hojas hoja.
+- **CSV, HTML, TXT, Excel, Parquet:** no se puede anidar en columnas; se usa el mismo criterio que **`allow-prefix`**: columnas con **clave compuesta** `grupo.campo`.
+
+Si **`allow-nested`** y **`allow-prefix`** van juntos, en JSON/NDJSON **gana** el anidado; en tabulares siguen las columnas con prefijo.
+
+### `allow-prefix="true"`
+
+Mantiene las claves aplanadas **con** prefijo de grupo: `book.titulo`, `listing.price`, etc. Útil para compatibilidad con consumidores que esperan nombres compuestos o varios grupos con nombres de campo repetidos.
+
+### `allow-sufix="true"` (alias)
+
+Mismo comportamiento que **`allow-prefix`**. Si en el mismo tag declaras **`allow-prefix`**, ese valor manda; el alias solo se usa cuando **`allow-prefix`** no está presente.
+
+---
+
 ## Ejemplo completo: `examples/demos/books_all_pages.xml`
 
 El ejemplo **books to scrape** (paginación + HTTP) además guarda cada libro en un **`FRecord`** (`booksRecords`). Opcionalmente puede declararse `<record-journal path="…"/>` para un NDJSON **incremental** durante el scrape. **Al terminar** el scrape, el mismo record se exporta con varios `<record-save>` — **ocho archivos** de salida final bajo `output/` (más el journal si está declarado):
@@ -140,42 +189,40 @@ El listado plano **`output/todos_los_libros.txt`** sigue generándose como antes
 
 ## Muestras de salida (mismos datos, dos filas ficticias)
 
-Ilustrativo: una fila real tiene `book.record_key`, `book.titulo`, `book.precio` aplanados donde aplique.
+**Default (sin `allow-nested` ni `allow-prefix`):** un solo grupo `book` → claves **cortas** en JSON/NDJSON/CSV. El journal y la resolución `from-field` en XML siguen usando la notación `book.campo` donde el schema lo define.
 
-### `json`
+### `json` (default)
 
 ```json
 [
   {
-    "book": {
-      "record_key": "book-1",
-      "titulo": "A Light in the ...",
-      "precio": "£51.77"
-    }
+    "record_key": "book-1",
+    "titulo": "A Light in the ...",
+    "precio": "£51.77"
   },
   {
-    "book": {
-      "record_key": "book-2",
-      "titulo": "Tipping the Velvet",
-      "precio": "£53.74"
-    }
+    "record_key": "book-2",
+    "titulo": "Tipping the Velvet",
+    "precio": "£53.74"
   }
 ]
 ```
 
-### `csv`
+Con **`allow-nested="true"`** volverías al objeto anidado por grupo (`"book": { ... }` por fila). Con **`allow-prefix="true"`** las claves serían `book.record_key`, `book.titulo`, etc.
+
+### `csv` (default)
 
 ```csv
-book.record_key,book.titulo,book.precio
+record_key,titulo,precio
 book-1,A Light in the ...,£51.77
 book-2,Tipping the Velvet,£53.74
 ```
 
-### `ndjson`
+### `ndjson` (default)
 
 ```ndjson
-{"book":{"record_key":"book-1","titulo":"A Light in the ...","precio":"£51.77"}}
-{"book":{"record_key":"book-2","titulo":"Tipping the Velvet","precio":"£53.74"}}
+{"record_key":"book-1","titulo":"A Light in the ...","precio":"£51.77"}
+{"record_key":"book-2","titulo":"Tipping the Velvet","precio":"£53.74"}
 ```
 
 ### `xml`
@@ -233,7 +280,7 @@ Columnas aplanadas; metadata de exportación en el esquema de tabla (`francis_ex
 
 | Formato | Suele servir para |
 |---------|-------------------|
-| `json` | APIs, apps, anidamiento legible |
+| `json` | APIs, apps; por defecto **objeto plano por fila**; `allow-nested` si el consumidor espera grupos anidados |
 | `csv` | Excel, Sheets, abrir en cualquier lado |
 | `ndjson` | pipelines, BigQuery, una fila = un JSON |
 | `xml` | integraciones legacy, SAP, B2B |
@@ -267,9 +314,9 @@ Columnas aplanadas; metadata de exportación en el esquema de tabla (`francis_ex
 
 | `format` | Descripción breve |
 |----------|-------------------|
-| `json` | Lista de objetos o envoltorio con `data` / `_metadata` / `_export` según flags; ver sección «Metadatos de exportación» arriba. |
-| `csv` | Filas aplanadas con claves por punto; metadata pública y claves de exportación como líneas `# name: value` al inicio si aplica. |
-| `ndjson` | Primera línea opcional `export` o `metadata`, luego una línea JSON por fila. |
+| `json` | Lista de objetos o envoltorio con `data` / `_metadata` / `_export` según flags; por defecto **claves cortas** (un grupo); ver «Forma de los datos exportados». |
+| `csv` | Filas aplanadas; por defecto **sin** prefijo de grupo si solo hay un grupo; metadata pública y export como líneas `# name: value` al inicio si aplica (omitibles con `clean-data`). |
+| `ndjson` | Primera línea opcional `export` o `metadata`, luego una línea JSON por fila (objeto plano por defecto). |
 | `xml` | Raíz `<Records …>`, un `<record>` por fila; attrs declarativos con `record-xml-root-attr` / `record-xml-record-attr` (solo XML). Si hay `<record-key>`, atributo `recordKey` = hash SHA-256 completo. |
 | `html` | Página HTML con tabla (columnas = filas aplanadas); secciones opcionales Export y metadata pública. |
 | `txt` | Texto **TSV** (tab-separated): cabecera + filas; líneas `#` de metadata y/o exportación si aplica. |
@@ -288,11 +335,17 @@ Los nombres de `format` son **insensibles a mayúsculas**. `excel` y `xlsx` son 
 | `format` | Sí | Uno de la tabla anterior. |
 | `path` | Sí | Ruta de salida; soporta `${variables}`. |
 | `include-metadata` | No | `true` / `false` (default `false`). Metadata **pública** declarada en `<record-metadata>`. |
+| `clean-data` | No | `true` / `false` (default `false`). Omite líneas/bloques de export y metadata pública en el archivo; tiene prioridad sobre `include-metadata` para lo que se escribe. Ver «Forma de los datos exportados». |
+| `allow-nested` | No | `true` / `false` (default `false`). JSON/NDJSON: filas **anidadas** por grupo; tabulares: columnas con `grupo.campo`. |
+| `allow-prefix` | No | `true` / `false` (default `false`). Mantiene claves aplanadas con prefijo (`book.titulo`). Si `allow-nested` es `true`, en JSON/NDJSON gana el anidado. |
+| `allow-sufix` | No | Alias de **`allow-prefix`** (misma semántica). Si existe `allow-prefix`, se usa ese. |
 | `sheet-name` | No | Solo **excel**: nombre de la hoja de datos (default `Data`; máx. 31 caracteres en Excel). |
 | `metadata-sheet-name` | No | Solo **excel**: hoja para metadata pública (default `Metadata`). |
 | `html-title` | No | Solo **html**: título de página y `<h1>` (default: nombre del workflow). |
 
 Atributos de texto pasan por `engine.resolve()` donde aplica.
+
+Los mismos flags de forma de datos (`clean-data`, `allow-nested`, `allow-prefix`, `allow-sufix`) aplican a **`<record-save-duplicates>`** y **`<record-save-validation-errors>`** donde el hand acepta los mismos atributos de serialización.
 
 ---
 
@@ -300,7 +353,7 @@ Atributos de texto pasan por `engine.resolve()` donde aplica.
 
 ### `json` / `ndjson` / `csv`
 
-Array o líneas; CSV con cabecera y filas aplanadas. Con `record-export-*`, JSON incluye `_export`; NDJSON antepone línea `export`. Más detalle arriba y en [record-save-formats.md](record-save-formats.md).
+Array o líneas; CSV con cabecera y filas aplanadas (por defecto **claves cortas** si un solo grupo). Con `record-export-*`, JSON puede incluir `_export`; NDJSON puede anteponer línea `export` — salvo `clean-data="true"`. Opciones `allow-nested` / `allow-prefix` en la sección «Forma de los datos exportados». Más detalle en [record-save-formats.md](record-save-formats.md).
 
 ### `xml`
 
@@ -335,3 +388,11 @@ Array o líneas; CSV con cabecera y filas aplanadas. Con `record-export-*`, JSON
 - Record inexistente o no es `FRecord` → error del hand.
 - Formato desconocido → `[RECORD] unsupported format '…'`.
 - Record vacío → no se escribe archivo (mismo criterio que csv).
+
+---
+
+## Historial de esta guía
+
+| Fecha | Cambio |
+|-------|--------|
+| 2026-04-09 | Documentados `clean-data`, export por defecto (claves cortas con un solo grupo, saneo de saltos de línea en strings), `allow-nested`, `allow-prefix`, alias `allow-sufix`; muestras JSON/CSV/NDJSON alineadas al comportamiento actual. |

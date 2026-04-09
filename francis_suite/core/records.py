@@ -21,6 +21,7 @@ Metadata system:
 """
 
 from __future__ import annotations
+import copy
 import hashlib
 import html as html_module
 import io
@@ -104,6 +105,54 @@ def write_bytes_atomic(path: Path, data: bytes) -> None:
     tmp.replace(path)
 
 
+def _sanitize_export_string_cell(value: str) -> str:
+    """
+    Replace CR/LF/tab runs with a single space and collapse repeated spaces.
+    Keeps tabular exports (CSV, etc.) to one physical line per row.
+    """
+    t = re.sub(r"[\r\n\t]+", " ", value)
+    return re.sub(r" {2,}", " ", t)
+
+
+def _sanitize_export_scalar_for_flat(v: Any) -> Any:
+    if isinstance(v, str):
+        return _sanitize_export_string_cell(v)
+    return v
+
+
+def _sanitize_nested_export_value(obj: Any) -> Any:
+    """Deep-apply string cell sanitization for nested record rows (allow-nested)."""
+    if isinstance(obj, str):
+        return _sanitize_export_string_cell(obj)
+    if isinstance(obj, dict):
+        return {k: _sanitize_nested_export_value(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_sanitize_nested_export_value(v) for v in obj]
+    return obj
+
+
+def _strip_shared_group_prefix_from_flat(flat: dict[str, Any]) -> dict[str, Any]:
+    """
+    When every key is dotted and shares one prefix (e.g. listing.*), drop that segment
+    so exports use workflow_key instead of listing.workflow_key.
+    If keys mix dotted and non-dotted, or use multiple prefixes, return flat unchanged.
+    """
+    if not flat:
+        return flat
+    keys = list(flat.keys())
+    if not all("." in k for k in keys):
+        return flat
+    prefixes = {k.split(".", 1)[0] for k in keys}
+    if len(prefixes) != 1:
+        return flat
+    p = next(iter(prefixes))
+    out: dict[str, Any] = {}
+    for k, v in flat.items():
+        rest = k[len(p) + 1 :] if k.startswith(p + ".") else k
+        out[rest] = v
+    return out
+
+
 def _session_completed_for_export(session: Any) -> bool:
     """
     True when export should treat the workflow as successfully finished for show-attribute rules.
@@ -170,10 +219,20 @@ def _append_xml_from_value(parent: etree._Element, key: str, value: Any) -> None
                     _append_xml_from_value(sub, k, v)
             else:
                 sub = etree.SubElement(el, "item", index=str(i))
-                sub.text = "" if item is None else str(item)
+                if item is None:
+                    sub.text = ""
+                elif isinstance(item, str):
+                    sub.text = _sanitize_export_string_cell(item)
+                else:
+                    sub.text = str(item)
     else:
         el = etree.SubElement(parent, tag)
-        el.text = "" if value is None else str(value)
+        if value is None:
+            el.text = ""
+        elif isinstance(value, str):
+            el.text = _sanitize_export_string_cell(value)
+        else:
+            el.text = str(value)
 
 
 # ---------------------------------------------------------------------------
@@ -1035,6 +1094,8 @@ class FRecord(FVariable):
         data_rows: list[dict] | None = None,
         include_metadata: bool = False,
         clean_data: bool = False,
+        allow_nested: bool = False,
+        allow_prefix: bool = False,
         session=None,
         sheet_name: str = "Data",
         metadata_sheet_name: str = "Metadata",
@@ -1065,6 +1126,10 @@ class FRecord(FVariable):
                                     JSON _export/_metadata wrappers, HTML/Excel export sections,
                                     Parquet francis_export key, etc.). Overrides include-metadata
                                     for output framing.
+            allow_nested:           if True, json/ndjson rows keep nested group objects; tabular formats
+                                    use dotted keys (listing.field) like allow-prefix. Default: false.
+            allow_prefix:           if True, flat keys keep the group prefix (listing.field). Ignored for
+                                    json/ndjson when allow_nested is True. Default: false.
             session:                FrancisSession — workflow name and metadata fields
             sheet_name:             excel — main data sheet name
             metadata_sheet_name:    excel — second sheet for public metadata (if include_metadata)
@@ -1081,6 +1146,13 @@ class FRecord(FVariable):
 
         clean_data_flag = clean_data
         effective_include_metadata = include_metadata and not clean_data_flag
+
+        tabular_use_prefix = bool(allow_nested or allow_prefix)
+        json_ndjson_shape = (
+            "nested"
+            if allow_nested
+            else ("prefix" if allow_prefix else "clean")
+        )
 
         effective_rows = self._rows if data_rows is None else data_rows
         if not effective_rows:
@@ -1125,6 +1197,7 @@ class FRecord(FVariable):
                 session=session,
                 export_augmentation_payload=xa,
                 include_export_wrapper=include_export_wrapper,
+                export_row_shape=json_ndjson_shape,
             )
         elif fmt == "csv":
             self._save_csv(
@@ -1132,6 +1205,7 @@ class FRecord(FVariable):
                 effective_rows,
                 include_metadata=effective_include_metadata,
                 export_augmentation=xa,
+                tabular_use_prefix=tabular_use_prefix,
             )
         elif fmt == "ndjson":
             self._save_ndjson(
@@ -1141,6 +1215,7 @@ class FRecord(FVariable):
                 session=session,
                 export_augmentation_payload=xa,
                 include_export_wrapper=include_export_wrapper,
+                export_row_shape=json_ndjson_shape,
             )
         elif fmt == "xml":
             self._save_xml(
@@ -1165,6 +1240,7 @@ class FRecord(FVariable):
                 session=session,
                 html_title=html_title,
                 export_augmentation=xa,
+                tabular_use_prefix=tabular_use_prefix,
             )
         elif fmt == "txt":
             self._save_txt(
@@ -1172,6 +1248,7 @@ class FRecord(FVariable):
                 effective_rows,
                 include_metadata=effective_include_metadata,
                 export_augmentation=xa,
+                tabular_use_prefix=tabular_use_prefix,
             )
         elif fmt in ("excel", "xlsx"):
             self._save_excel(
@@ -1182,9 +1259,15 @@ class FRecord(FVariable):
                 sheet_name=sheet_name,
                 metadata_sheet_name=metadata_sheet_name,
                 export_augmentation=xa,
+                tabular_use_prefix=tabular_use_prefix,
             )
         elif fmt == "parquet":
-            self._save_parquet(output_path, effective_rows, export_augmentation=xa)
+            self._save_parquet(
+                output_path,
+                effective_rows,
+                export_augmentation=xa,
+                tabular_use_prefix=tabular_use_prefix,
+            )
         else:
             raise ValueError(
                 f"[RECORD] unsupported format '{format}'. "
@@ -1219,22 +1302,24 @@ class FRecord(FVariable):
         *,
         export_augmentation_payload: dict[str, str] | None = None,
         include_export_wrapper: bool = False,
+        export_row_shape: str = "clean",
     ) -> None:
         xa = dict(export_augmentation_payload or {})
+        export_rows = self._rows_for_json_ndjson_export(rows, shape=export_row_shape)
         if include_metadata:
             public_meta = self.build_public_metadata(session)
             output: dict | list = {
                 "_metadata": public_meta or {},
-                "data": rows,
+                "data": export_rows,
             }
             if include_export_wrapper:
                 output["_export"] = xa
             elif xa:
                 output["_export"] = xa
         elif include_export_wrapper:
-            output = {"_export": xa, "data": rows}
+            output = {"_export": xa, "data": export_rows}
         else:
-            output = rows
+            output = export_rows
 
         text = json.dumps(output, ensure_ascii=False, indent=2, default=str)
         write_text_atomic(path, text)
@@ -1248,6 +1333,7 @@ class FRecord(FVariable):
         *,
         export_augmentation_payload: dict[str, str] | None = None,
         include_export_wrapper: bool = False,
+        export_row_shape: str = "clean",
     ) -> None:
         xa = dict(export_augmentation_payload or {})
         lines: list[str] = []
@@ -1259,7 +1345,8 @@ class FRecord(FVariable):
             public_meta = self.build_public_metadata(session)
             if public_meta:
                 lines.append(json.dumps({"_type": "metadata", **public_meta}, ensure_ascii=False, default=str))
-        for row in rows:
+        shaped = self._rows_for_json_ndjson_export(rows, shape=export_row_shape)
+        for row in shaped:
             lines.append(json.dumps(row, ensure_ascii=False, default=str))
         if lines:
             write_text_atomic(path, "\n".join(lines) + "\n")
@@ -1270,11 +1357,15 @@ class FRecord(FVariable):
         rows: list[dict],
         include_metadata: bool = False,
         export_augmentation: dict[str, str] | None = None,
+        *,
+        tabular_use_prefix: bool = False,
     ) -> None:
         if not rows:
             return
 
-        flat_rows_raw = [self._flatten(row) for row in rows]
+        flat_rows_raw = self._rows_for_tabular_export(
+            rows, tabular_use_prefix=tabular_use_prefix
+        )
         # CSV has no JSON null — empty string for missing / None
         flat_rows = [
             {k: ("" if v is None else v) for k, v in r.items()}
@@ -1296,7 +1387,9 @@ class FRecord(FVariable):
         for ek, ev in xa.items():
             buf.write(f"# {ek}: {ev}\n")
 
-        writer = csv.DictWriter(buf, fieldnames=keys, extrasaction="ignore")
+        writer = csv.DictWriter(
+            buf, fieldnames=keys, extrasaction="ignore", lineterminator="\n"
+        )
         writer.writeheader()
         writer.writerows(flat_rows)
         write_text_atomic(path, buf.getvalue())
@@ -1387,11 +1480,14 @@ class FRecord(FVariable):
         session=None,
         html_title: str | None = None,
         export_augmentation: dict[str, str] | None = None,
+        tabular_use_prefix: bool = False,
     ) -> None:
         if not rows:
             return
 
-        flat_rows = [self._flatten(row) for row in rows]
+        flat_rows = self._rows_for_tabular_export(
+            rows, tabular_use_prefix=tabular_use_prefix
+        )
         keys: list[str] = []
         for row in flat_rows:
             for key in row:
@@ -1462,11 +1558,14 @@ class FRecord(FVariable):
         *,
         include_metadata: bool = False,
         export_augmentation: dict[str, str] | None = None,
+        tabular_use_prefix: bool = False,
     ) -> None:
         if not rows:
             return
 
-        flat_rows = [self._flatten(row) for row in rows]
+        flat_rows = self._rows_for_tabular_export(
+            rows, tabular_use_prefix=tabular_use_prefix
+        )
         keys: list[str] = []
         for row in flat_rows:
             for key in row:
@@ -1503,13 +1602,16 @@ class FRecord(FVariable):
         sheet_name: str = "Data",
         metadata_sheet_name: str = "Metadata",
         export_augmentation: dict[str, str] | None = None,
+        tabular_use_prefix: bool = False,
     ) -> None:
         if not rows:
             return
 
         from openpyxl import Workbook
 
-        flat_rows = [self._flatten(row) for row in rows]
+        flat_rows = self._rows_for_tabular_export(
+            rows, tabular_use_prefix=tabular_use_prefix
+        )
         keys: list[str] = []
         for row in flat_rows:
             for key in row:
@@ -1548,6 +1650,8 @@ class FRecord(FVariable):
         path: Path,
         rows: list[dict],
         export_augmentation: dict[str, str] | None = None,
+        *,
+        tabular_use_prefix: bool = False,
     ) -> None:
         if not rows:
             return
@@ -1555,7 +1659,9 @@ class FRecord(FVariable):
         import pyarrow as pa
         import pyarrow.parquet as pq
 
-        flat_rows = [self._flatten(row) for row in rows]
+        flat_rows = self._rows_for_tabular_export(
+            rows, tabular_use_prefix=tabular_use_prefix
+        )
         table = pa.Table.from_pylist(flat_rows)
         xa = export_augmentation or {}
         if xa:
@@ -1581,3 +1687,38 @@ class FRecord(FVariable):
             else:
                 result[full_key] = value
         return result
+
+    def _flatten_for_export(self, row: dict) -> dict:
+        """
+        Flatten for file output: drop shared group prefix (e.g. listing.* → short keys)
+        and normalize line breaks in string cells.
+        """
+        flat = self._flatten(row)
+        flat = _strip_shared_group_prefix_from_flat(flat)
+        return {k: _sanitize_export_scalar_for_flat(v) for k, v in flat.items()}
+
+    def _flatten_sanitize_only(self, row: dict) -> dict:
+        """Flat keys keeping group prefix (e.g. listing.field); sanitize string cells."""
+        flat = self._flatten(row)
+        return {k: _sanitize_export_scalar_for_flat(v) for k, v in flat.items()}
+
+    def _rows_for_tabular_export(
+        self, rows: list[dict], *, tabular_use_prefix: bool
+    ) -> list[dict]:
+        """Tabular formats always use flat columns; prefix mode keeps listing.field names."""
+        if tabular_use_prefix:
+            return [self._flatten_sanitize_only(r) for r in rows]
+        return [self._flatten_for_export(r) for r in rows]
+
+    def _rows_for_json_ndjson_export(self, rows: list[dict], *, shape: str) -> list[dict]:
+        """
+        shape:
+            clean — short keys (default)
+            prefix — dotted group keys (listing.field)
+            nested — original row dict structure (groups preserved)
+        """
+        if shape == "nested":
+            return [_sanitize_nested_export_value(copy.deepcopy(r)) for r in rows]
+        if shape == "prefix":
+            return [self._flatten_sanitize_only(r) for r in rows]
+        return [self._flatten_for_export(r) for r in rows]

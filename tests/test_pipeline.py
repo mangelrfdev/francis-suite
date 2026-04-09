@@ -2730,8 +2730,8 @@ def test_record_save_json(tmp_path):
     import json
     data = json.loads(output.read_text(encoding="utf-8"))
     assert len(data) == 1
-    assert data[0]["item"]["nombre"] == "Casa"
-    assert data[0]["item"]["precio"] == 100000
+    assert data[0]["nombre"] == "Casa"
+    assert data[0]["precio"] == 100000
 
 
 def test_record_save_csv(tmp_path):
@@ -2765,7 +2765,8 @@ def test_record_save_csv(tmp_path):
     assert session.status == SessionStatus.COMPLETED
     assert output.exists()
     content = output.read_text(encoding="utf-8")
-    assert "item.nombre" in content
+    assert "nombre" in content
+    assert "item." not in content
     assert "Casa" in content
 
 
@@ -2994,12 +2995,104 @@ def test_record_save_clean_data_omits_export_and_csv_comments(tmp_path):
     assert len(nd_lines) == 1
     first = json.loads(nd_lines[0])
     assert "_type" not in first
-    assert first.get("item", {}).get("nombre") == "X"
+    assert first.get("nombre") == "X"
 
     j = json.loads(out_json.read_text(encoding="utf-8"))
     assert isinstance(j, list)
     assert len(j) == 1
     assert "_export" not in j
+
+
+def test_record_save_allow_prefix_keeps_dotted_keys(tmp_path):
+    """allow-prefix=true exports flat keys with group prefix (item.nombre)."""
+    output = tmp_path / "pref.json"
+
+    xml = f"""
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">Casa</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-save from="testRecords" format="json" path="{output.as_posix()}" allow-prefix="true"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-record-save-allow-prefix")
+
+    assert session.status == SessionStatus.COMPLETED
+    data = json.loads(output.read_text(encoding="utf-8"))
+    assert len(data) == 1
+    assert data[0]["item.nombre"] == "Casa"
+
+
+def test_record_save_allow_nested_keeps_groups(tmp_path):
+    """allow-nested=true exports nested group objects in JSON."""
+    output = tmp_path / "nested.json"
+
+    xml = f"""
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">Casa</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-save from="testRecords" format="json" path="{output.as_posix()}" allow-nested="true"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-record-save-allow-nested")
+
+    assert session.status == SessionStatus.COMPLETED
+    data = json.loads(output.read_text(encoding="utf-8"))
+    assert len(data) == 1
+    assert data[0]["item"]["nombre"] == "Casa"
+
+
+def test_record_save_allow_sufix_alias_same_as_allow_prefix(tmp_path):
+    """allow-sufix is an alias for allow-prefix."""
+    output = tmp_path / "alias.json"
+
+    xml = f"""
+    <francis-workflow>
+        <record-create name="testRecords">
+            <record-set-group name="item" required="true">
+                <record-set-field name="nombre" type="string" required="true"/>
+            </record-set-group>
+        </record-create>
+        <record-add to="testRecords">
+            <record-add-group name="item">
+                <record-add-field name="nombre">X</record-add-field>
+            </record-add-group>
+        </record-add>
+        <record-save from="testRecords" format="json" path="{output.as_posix()}" allow-sufix="true"/>
+    </francis-workflow>
+    """
+
+    parser = FParser()
+    runtime = FRuntime()
+    root = parser.parse_string(xml)
+    session = runtime.run(root, workflow_name="test-record-save-allow-sufix-alias")
+
+    assert session.status == SessionStatus.COMPLETED
+    data = json.loads(output.read_text(encoding="utf-8"))
+    assert data[0]["item.nombre"] == "X"
 
 
 def test_record_xml_record_attr_from_field(tmp_path):
@@ -3171,7 +3264,8 @@ def test_record_save_txt(tmp_path):
     assert session.status == SessionStatus.COMPLETED
     assert output.exists()
     lines = output.read_text(encoding="utf-8").strip().split("\n")
-    assert "item.nombre" in lines[0]
+    assert "nombre" in lines[0]
+    assert "item." not in lines[0]
     assert "Casa" in lines[1]
 
 
@@ -3209,7 +3303,7 @@ def test_record_save_excel(tmp_path):
     wb = load_workbook(output)
     assert "Items" in wb.sheetnames
     ws = wb["Items"]
-    assert ws.cell(row=1, column=1).value == "item.nombre"
+    assert ws.cell(row=1, column=1).value == "nombre"
     assert ws.cell(row=2, column=1).value == "Casa"
 
 
@@ -3246,7 +3340,7 @@ def test_record_save_parquet(tmp_path):
 
     table = pq.read_table(output)
     assert table.num_rows == 1
-    assert table.column("item.nombre")[0].as_py() == "Casa"
+    assert table.column("nombre")[0].as_py() == "Casa"
 
 
 def test_record_add_without_create_fails():
@@ -3396,12 +3490,12 @@ def test_record_save_duplicates_ndjson(tmp_path, monkeypatch):
         json.loads(l) for l in Path(out_main).read_text(encoding="utf-8").strip().splitlines()
     ]
     assert len(main_lines) == 1
-    assert main_lines[0]["item"]["precio"] == 100
+    assert main_lines[0]["precio"] == 100
     dup_lines = [
         json.loads(l) for l in Path(out_dup).read_text(encoding="utf-8").strip().splitlines()
     ]
     assert len(dup_lines) == 1
-    assert dup_lines[0]["item"]["precio"] == 200
+    assert dup_lines[0]["precio"] == 200
 
 
 def test_record_save_duplicates_requires_record_key(tmp_path, monkeypatch):

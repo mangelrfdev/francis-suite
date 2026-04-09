@@ -104,6 +104,8 @@ Incluye: `xml`, `html`, `txt` (tab-separated), `excel` / `xlsx`, `parquet` (adem
 
 **Metadatos de exportación unificados:** declarados en `<record-create>` (`<record-export-attr>` / `<record-export-system>`, alias `<xml-root-*>`); **attrs solo XML:** `<record-xml-root-attr>` / `<record-xml-record-attr>`; cada `<record-save>` solo elige formato; [guides/record-save.md](guides/record-save.md).
 
+**Forma del entregable:** por defecto claves cortas y saneo de texto en CSV/JSON; atributos opcionales `clean-data`, `allow-nested`, `allow-prefix` (alias `allow-sufix`) — sección *Forma de los datos exportados* en [guides/record-save.md](guides/record-save.md).
+
 **Evolutivo / diseño avanzado** (`metadata-placement`, plantillas txt libres, etc.): [guides/record-save-formats.md](guides/record-save-formats.md).
 
 ---

@@ -239,6 +239,11 @@ class RecordSaveHand(AbstractHand):
         clean-data       (optional): if true, omit export/session framing and public metadata from
             the file (CSV comment lines, NDJSON export/metadata lines, JSON wrappers, etc.).
             Default: false. Takes precedence over include-metadata for what is written.
+        allow-nested     (optional): if true, json/ndjson rows keep nested group objects; tabular
+            formats use dotted keys (group.field). Default: false.
+        allow-prefix     (optional): if true, flat keys keep the group prefix (e.g. listing.title).
+            For json/ndjson, ignored when allow-nested is true. Default: false.
+        allow-sufix      (optional): alias for allow-prefix (same behavior).
         sheet-name       (optional): excel — main sheet name (default: Data)
         metadata-sheet-name (optional): excel — sheet for public metadata (default: Metadata)
         html-title       (optional): html — page title and main heading (default: workflow name)
@@ -289,6 +294,15 @@ class RecordSaveHand(AbstractHand):
         path             = engine.resolve(self.require_attr("path"))
         include_metadata = self.attr("include-metadata", "false").lower() == "true"
         clean_data = self.attr("clean-data", "false").lower() == "true"
+        allow_nested = self.attr("allow-nested", "false").lower() == "true"
+        raw_prefix = self.attr("allow-prefix", "").strip()
+        raw_sufix_alias = self.attr("allow-sufix", "").strip()
+        if raw_prefix:
+            allow_prefix = raw_prefix.lower() in ("true", "1", "yes")
+        elif raw_sufix_alias:
+            allow_prefix = raw_sufix_alias.lower() in ("true", "1", "yes")
+        else:
+            allow_prefix = False
         sheet_name         = engine.resolve(self.attr("sheet-name", "Data"))
         metadata_sheet_name = engine.resolve(self.attr("metadata-sheet-name", "Metadata"))
         html_title_raw     = self.attr("html-title", "")
@@ -335,6 +349,8 @@ class RecordSaveHand(AbstractHand):
             path,
             include_metadata=include_metadata,
             clean_data=clean_data,
+            allow_nested=allow_nested,
+            allow_prefix=allow_prefix,
             session=self.session,
             sheet_name=sheet_name,
             metadata_sheet_name=metadata_sheet_name,

@@ -2,10 +2,10 @@
 
 > Framework **low-code** en XML para extracción y procesamiento de datos, construido en Python.
 
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-150%2B%20passing-brightgreen)](tests/)
-[![Status](https://img.shields.io/badge/estado-en%20desarrollo%20activo-orange)](docs/roadmap.md)
+[![PYTHON 3.11+](https://img.shields.io/badge/PYTHON-3.11%2B-blue)](https://www.python.org/downloads/)
+[![LICENCIA MIT](https://img.shields.io/badge/LICENCIA-MIT-yellow)](LICENSE)
+[![PRUEBAS 150+](https://img.shields.io/badge/PRUEBAS-150%2B-brightgreen)](tests/)
+[![ESTADO Funcional](https://img.shields.io/badge/ESTADO-Funcional-brightgreen)](docs/roadmap.md)
 
 ---
 
@@ -1157,14 +1157,16 @@ integrations/web/       # specs de integración con producto web (opcional)
 
 ## Estado
 
-En **desarrollo activo**. El core está implementado y testeado: parser, runtime, sistema de records,
+**Funcional y listo para usarse.** El core está implementado y testeado: parser, runtime, sistema de records,
 expresiones, hands integrados de red, archivos, conversiones, control de flujo y exportación
-multi-formato.
+multi-formato. Podés armar pipelines reales hoy con los workflows en [`workflows/`](workflows/) y
+[`examples/`](examples/).
 
-Lo que sigue (PDF nativo, lectura de Excel/CSV/JSON, integración con IA, navegador completo, storage
-en la nube, plugin del editor, API REST) está en la sección
-[**En desarrollo y próximas funcionalidades**](#en-desarrollo-y-próximas-funcionalidades) y, con más
-detalle técnico, en [`docs/roadmap.md`](docs/roadmap.md).
+El framework sigue **abierto a crecer**: nuevas capacidades se suman como hands (registradas en el
+runtime) sin reescribir el motor. Lo planificado a futuro (PDF nativo, lectura de Excel/JSON, IA,
+navegador completo, storage en la nube, plugin del editor, API REST) está en
+[**En desarrollo y próximas funcionalidades**](#en-desarrollo-y-próximas-funcionalidades) y en
+[`docs/roadmap.md`](docs/roadmap.md).
 
 ---
 

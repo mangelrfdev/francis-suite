@@ -1,0 +1,424 @@
+{
+  "Workflow root": {
+    "scope": "xml",
+    "prefix": "fs-workflow",
+    "description": "Create a Francis Suite workflow skeleton",
+    "body": [
+      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+      "<francis-workflow",
+      "  xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"",
+      "  xsi:noNamespaceSchemaLocation=\"../schema/francis-workflow.xsd\">",
+      "",
+      "  $0",
+      "",
+      "</francis-workflow>"
+    ]
+  },
+
+  "box-def — define a variable": {
+    "scope": "xml",
+    "prefix": "fs-box-def",
+    "description": "Define a variable in the context",
+    "body": [
+      "<box-def name=\"${1:name}\">${2:value}</box-def>$0"
+    ]
+  },
+
+  "box-def with children": {
+    "scope": "xml",
+    "prefix": "fs-box-def-children",
+    "description": "Define a variable computed from child hands",
+    "body": [
+      "<box-def name=\"${1:name}\">",
+      "  $0",
+      "</box-def>"
+    ]
+  },
+
+  "box — reference a variable": {
+    "scope": "xml",
+    "prefix": "fs-box",
+    "description": "Reference an existing variable",
+    "body": [
+      "<box name=\"${1:name}\"/>$0"
+    ]
+  },
+
+  "shared-box-def — global variable": {
+    "scope": "xml",
+    "prefix": "fs-shared-box-def",
+    "description": "Define a variable in global scope",
+    "body": [
+      "<shared-box-def name=\"${1:name}\">${2:value}</shared-box-def>$0"
+    ]
+  },
+
+  "shared-box — global reference": {
+    "scope": "xml",
+    "prefix": "fs-shared-box",
+    "description": "Reference a shared variable",
+    "body": [
+      "<shared-box name=\"${1:name}\"/>$0"
+    ]
+  },
+
+  "log — info message": {
+    "scope": "xml",
+    "prefix": "fs-log",
+    "description": "Print a message to stdout",
+    "body": [
+      "<log>${1:message}</log>$0"
+    ]
+  },
+
+  "log with level": {
+    "scope": "xml",
+    "prefix": "fs-log-level",
+    "description": "Print with a specific log level",
+    "body": [
+      "<log level=\"${1|info,debug,warning,error|}\">${2:message}</log>$0"
+    ]
+  },
+
+  "sleep — fixed": {
+    "scope": "xml",
+    "prefix": "fs-sleep",
+    "description": "Pause for a fixed duration in ms",
+    "body": [
+      "<sleep ms=\"${1:1000}\"/>$0"
+    ]
+  },
+
+  "sleep — random (human-like)": {
+    "scope": "xml",
+    "prefix": "fs-sleep-random",
+    "description": "Pause with gaussian randomness",
+    "body": [
+      "<sleep>",
+      "  <sleep-min>${1:1000}</sleep-min>",
+      "  <sleep-avg>${2:3000}</sleep-avg>",
+      "  <sleep-max>${3:10000}</sleep-max>",
+      "</sleep>$0"
+    ]
+  },
+
+  "if / else": {
+    "scope": "xml",
+    "prefix": "fs-if",
+    "description": "Conditional branch",
+    "body": [
+      "<if condition=\"${1:expression}\">",
+      "  $2",
+      "</if>",
+      "<else>",
+      "  $3",
+      "</else>$0"
+    ]
+  },
+
+  "loop — iterate list": {
+    "scope": "xml",
+    "prefix": "fs-loop",
+    "description": "Iterate over a list variable",
+    "body": [
+      "<loop>",
+      "  <loop-list>",
+      "    <box name=\"${1:list_name}\"/>",
+      "  </loop-list>",
+      "  <loop-body>",
+      "    $0",
+      "  </loop-body>",
+      "</loop>"
+    ]
+  },
+
+  "while — conditional loop": {
+    "scope": "xml",
+    "prefix": "fs-while",
+    "description": "Loop while a condition holds",
+    "body": [
+      "<while condition=\"${1:expression}\" max-iterations=\"${2:1000}\">",
+      "  $0",
+      "</while>"
+    ]
+  },
+
+  "try / catch": {
+    "scope": "xml",
+    "prefix": "fs-try",
+    "description": "Error-safe block",
+    "body": [
+      "<try>",
+      "  $1",
+      "</try>",
+      "<catch>",
+      "  $2",
+      "</catch>$0"
+    ]
+  },
+
+  "httpx-call — GET": {
+    "scope": "xml",
+    "prefix": "fs-httpx-get",
+    "description": "HTTP GET request",
+    "body": [
+      "<httpx-call url=\"${1:https://example.com}\" method=\"GET\" timeout=\"${2:30}\"/>$0"
+    ]
+  },
+
+  "httpx-call — full": {
+    "scope": "xml",
+    "prefix": "fs-httpx-full",
+    "description": "HTTP request with all options",
+    "body": [
+      "<httpx-call",
+      "  url=\"${1:https://example.com}\"",
+      "  method=\"${2|GET,POST,PUT,PATCH,DELETE|}\"",
+      "  timeout=\"${3:30}\"",
+      "  follow-redirects=\"${4|true,false|}\">",
+      "  $0",
+      "</httpx-call>"
+    ]
+  },
+
+  "set-proxy": {
+    "scope": "xml",
+    "prefix": "fs-set-proxy",
+    "description": "Configure proxy with probe validation",
+    "body": [
+      "<set-proxy",
+      "  proxy=\"${1:http://proxy:port}\"",
+      "  probe-url=\"${2:https://example.com}\"",
+      "  ok-xpath=\"${3://body}\"/>$0"
+    ]
+  },
+
+  "xpath-extract": {
+    "scope": "xml",
+    "prefix": "fs-xpath",
+    "description": "Extract values via XPath",
+    "body": [
+      "<xpath-extract expression=\"${1://h2/text()}\">",
+      "  <box name=\"${2:html}\"/>",
+      "</xpath-extract>$0"
+    ]
+  },
+
+  "regex": {
+    "scope": "xml",
+    "prefix": "fs-regex",
+    "description": "Apply a regex",
+    "body": [
+      "<regex>",
+      "  <regex-input><box name=\"${1:text}\"/></regex-input>",
+      "  <regex-pattern>${2:(pattern)}</regex-pattern>",
+      "</regex>$0"
+    ]
+  },
+
+  "compose": {
+    "scope": "xml",
+    "prefix": "fs-compose",
+    "description": "Compose a string with variable interpolation",
+    "body": [
+      "<compose>${1:prefix}-\\${${2:var}}-${3:suffix}</compose>$0"
+    ]
+  },
+
+  "file-read": {
+    "scope": "xml",
+    "prefix": "fs-file-read",
+    "description": "Read a file",
+    "body": [
+      "<file-read path=\"${1:path/to/file}\"/>$0"
+    ]
+  },
+
+  "file-write": {
+    "scope": "xml",
+    "prefix": "fs-file-write",
+    "description": "Write content to a file",
+    "body": [
+      "<file-write path=\"${1:output/file.txt}\" mkdir=\"true\">",
+      "  ${2:content}",
+      "</file-write>$0"
+    ]
+  },
+
+  "record-create": {
+    "scope": "xml",
+    "prefix": "fs-record-create",
+    "description": "Create a record collection with schema",
+    "body": [
+      "<record-create name=\"${1:my_record}\">",
+      "  $0",
+      "</record-create>"
+    ]
+  },
+
+  "record-add": {
+    "scope": "xml",
+    "prefix": "fs-record-add",
+    "description": "Add a row to a record",
+    "body": [
+      "<record-add record=\"${1:my_record}\">",
+      "  $0",
+      "</record-add>"
+    ]
+  },
+
+  "record-save — JSON": {
+    "scope": "xml",
+    "prefix": "fs-record-save-json",
+    "description": "Save a record as JSON",
+    "body": [
+      "<record-save record=\"${1:my_record}\" format=\"json\" path=\"${2:output/data.json}\" pretty=\"true\"/>$0"
+    ]
+  },
+
+  "record-save — any format": {
+    "scope": "xml",
+    "prefix": "fs-record-save",
+    "description": "Save a record in any supported format",
+    "body": [
+      "<record-save",
+      "  record=\"${1:my_record}\"",
+      "  format=\"${2|json,csv,ndjson,xml,html,txt,xlsx,parquet|}\"",
+      "  path=\"${3:output/data.${2}}\"/>$0"
+    ]
+  },
+
+  "function-create": {
+    "scope": "xml",
+    "prefix": "fs-function-create",
+    "description": "Define a reusable function",
+    "body": [
+      "<function-create name=\"${1:my_function}\">",
+      "  $0",
+      "  <function-return>",
+      "    <box name=\"result\"/>",
+      "  </function-return>",
+      "</function-create>"
+    ]
+  },
+
+  "function-call": {
+    "scope": "xml",
+    "prefix": "fs-function-call",
+    "description": "Invoke a defined function",
+    "body": [
+      "<function-call name=\"${1:my_function}\">",
+      "  <function-param name=\"${2:param_name}\">${3:value}</function-param>",
+      "</function-call>$0"
+    ]
+  },
+
+  "call-workflow": {
+    "scope": "xml",
+    "prefix": "fs-call-workflow",
+    "description": "Run another workflow as a sub-process",
+    "body": [
+      "<call-workflow path=\"${1:workflows/other.xml}\"/>$0"
+    ]
+  },
+
+  "exit": {
+    "scope": "xml",
+    "prefix": "fs-exit",
+    "description": "Terminate the workflow",
+    "body": [
+      "<exit code=\"${1:0}\" message=\"${2:Done}\"/>$0"
+    ]
+  },
+
+  "pause-task": {
+    "scope": "xml",
+    "prefix": "fs-pause",
+    "description": "Pause execution for inspection",
+    "body": [
+      "<pause-task message=\"${1:Press enter to continue}\"/>$0"
+    ]
+  },
+
+  "session-pulse": {
+    "scope": "xml",
+    "prefix": "fs-pulse",
+    "description": "Heartbeat for the silence watchdog",
+    "body": [
+      "<session-pulse/>$0"
+    ]
+  },
+
+  "build-list": {
+    "scope": "xml",
+    "prefix": "fs-build-list",
+    "description": "Build a list variable",
+    "body": [
+      "<build-list>",
+      "  ${1:<box name=\"item1\"/>}",
+      "</build-list>$0"
+    ]
+  },
+
+  "evaluate — expression": {
+    "scope": "xml",
+    "prefix": "fs-evaluate",
+    "description": "Evaluate a Francis expression",
+    "body": [
+      "<evaluate>${1:expression}</evaluate>$0"
+    ]
+  },
+
+  "text-split": {
+    "scope": "xml",
+    "prefix": "fs-text-split",
+    "description": "Split text into tokens",
+    "body": [
+      "<text-split delimiter=\"${1:,}\">",
+      "  <box name=\"${2:text}\"/>",
+      "</text-split>$0"
+    ]
+  },
+
+  "Full scraper skeleton": {
+    "scope": "xml",
+    "prefix": "fs-skeleton-scraper",
+    "description": "Complete minimal scraping workflow",
+    "body": [
+      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>",
+      "<francis-workflow",
+      "  xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"",
+      "  xsi:noNamespaceSchemaLocation=\"../schema/francis-workflow.xsd\">",
+      "",
+      "  <box-def name=\"url\">${1:https://example.com}</box-def>",
+      "",
+      "  <box-def name=\"html\">",
+      "    <httpx-call url=\"\\${url}\" method=\"GET\" timeout=\"30\"/>",
+      "  </box-def>",
+      "",
+      "  <box-def name=\"items\">",
+      "    <xpath-extract expression=\"${2://h2/text()}\">",
+      "      <box name=\"html\"/>",
+      "    </xpath-extract>",
+      "  </box-def>",
+      "",
+      "  <record-create name=\"results\"/>",
+      "",
+      "  <loop>",
+      "    <loop-list><box name=\"items\"/></loop-list>",
+      "    <loop-body>",
+      "      <record-add record=\"results\">",
+      "        <box-def name=\"title\"><box name=\"item\"/></box-def>",
+      "      </record-add>",
+      "      <sleep ms=\"500\"/>",
+      "    </loop-body>",
+      "  </loop>",
+      "",
+      "  <record-save record=\"results\" format=\"json\" path=\"${3:output/results.json}\" pretty=\"true\"/>",
+      "",
+      "  <log>Done: \\${results}</log>",
+      "",
+      "</francis-workflow>"
+    ]
+  }
+}

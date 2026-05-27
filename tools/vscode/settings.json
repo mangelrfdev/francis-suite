@@ -1,0 +1,29 @@
+{
+  "// Francis Suite — VS Code XML tooling": "Copia este archivo a .vscode/settings.json",
+
+  "files.associations": {
+    "*.xml": "xml"
+  },
+
+  "xml.fileAssociations": [
+    {
+      "pattern": "**/workflows/**/*.xml",
+      "systemId": "./schema/francis-workflow.xsd"
+    },
+    {
+      "pattern": "**/examples/**/*.xml",
+      "systemId": "./schema/francis-workflow.xsd"
+    },
+    {
+      "pattern": "**/templates/**/*.xml",
+      "systemId": "./schema/francis-workflow.xsd"
+    }
+  ],
+
+  "xml.completion.autoCloseTags": true,
+  "xml.format.enabled": true,
+  "xml.format.splitAttributes": "preserve",
+  "xml.format.joinContentLines": false,
+  "xml.validation.enabled": true,
+  "xml.validation.schema.enabled": "always"
+}

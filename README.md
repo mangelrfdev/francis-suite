@@ -6,13 +6,13 @@
 
 [![PYTHON 3.11+](https://img.shields.io/badge/PYTHON-3.11%2B-blue)](https://www.python.org/downloads/)
 [![LICENCIA MIT](https://img.shields.io/badge/LICENCIA-MIT-yellow)](LICENSE)
-[![PRUEBAS 150+](https://img.shields.io/badge/PRUEBAS-150%2B-brightgreen)](tests/)
+[![TESTS/PRUEBAS 150+ PASSED](https://img.shields.io/badge/PRUEBAS-150%2B-brightgreen)](tests/)
 [![ESTADO Funcional](https://img.shields.io/badge/ESTADO-Funcional%20%C2%B7%20extensible-brightgreen)](docs/roadmap.md)
 
 > Core **funcional** y listo para usar en pipelines reales. Nuevas capacidades se suman como **hands**
 > sin reescribir el motor — ver [`docs/roadmap.md`](docs/roadmap.md).
 
-**¿Quieres extender el framework?** → [**Cómo crear un hand**](docs/guides/como-crear-un-hand.md)  
+**¿Quieres extender el framework o agregar una funcionalidad?** → [**Cómo crear un hand**](docs/guides/como-crear-un-hand.md)  
 Guía paso a paso: Python + XML + tests + schema, con plantilla lista para copiar.
 
 ---

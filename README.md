@@ -101,9 +101,7 @@ Los workflows son **árboles de decisiones**. XML está pensado para árboles:
          método, timeout, headers de autenticación y formato, y query params.
          Todo a la vista, sin objetos sueltos ni código de pegamento. -->
     <box-def name="pagina_html">
-        <httpx-call url="https://api.miportal.com/listings/search"
-                    method="GET"
-                    timeout="15000">
+        <httpx-call url="https://api.miportal.com/listings/search" method="GET" timeout="15000">
 
             <!-- Headers HTTP. ${api_token} viene del CLI (--param api_token=...) y
                  se enmascara automáticamente en logs porque el nombre matchea 'token'. -->

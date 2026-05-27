@@ -1,5 +1,7 @@
 # Documentación — Francis Suite
 
+> 🌐 **Español** (este índice) · README en inglés: [`../README.en.md`](../README.en.md) · Guía de hands en inglés: [`guides/how-to-create-a-hand.md`](guides/how-to-create-a-hand.md)
+
 Índice rápido (la fuente de verdad sigue siendo el código y los tests).
 
 | Documento | Contenido |
@@ -13,7 +15,7 @@
 
 | Guía | Tema |
 |------|------|
-| [**como-crear-un-hand.md**](guides/como-crear-un-hand.md) | **Cómo crear e integrar un hand nuevo** — plantilla Python, registro, tests, schema, checklist |
+| [**como-crear-un-hand.md**](guides/como-crear-un-hand.md) | **Cómo crear e integrar un hand nuevo** — plantilla Python, registro, tests, schema, checklist · 🇬🇧 [English](guides/how-to-create-a-hand.md) |
 | [record-save.md](guides/record-save.md) | `<record-save>`, `<record-save-duplicates>`, `<record-save-validation-errors>`, `record-validation` (strict / collect-errors), `record-journal`, `record-export-*`, `clean-data`, `allow-nested` / `allow-prefix` (alias `allow-sufix`), ejemplos `books_all_pages.xml` / `all_books_pages.xml` |
 | [record-save-formats.md](guides/record-save-formats.md) | Diseño evolutivo (metadata-placement, plantillas, etc.) |
 | [sensitive.md](guides/sensitive.md) | Variables sensibles, masking, `--param` |

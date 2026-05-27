@@ -1,5 +1,7 @@
 # Francis Suite
 
+> 🌐 **Español** · [English](README.en.md)
+
 > Framework **low-code** en XML para extracción y procesamiento de datos, construido en Python.
 
 [![PYTHON 3.11+](https://img.shields.io/badge/PYTHON-3.11%2B-blue)](https://www.python.org/downloads/)
@@ -10,7 +12,7 @@
 > Core **funcional** y listo para usar en pipelines reales. Nuevas capacidades se suman como **hands**
 > sin reescribir el motor — ver [`docs/roadmap.md`](docs/roadmap.md).
 
-**¿Querés extender el framework?** → [**Cómo crear un hand**](docs/guides/como-crear-un-hand.md)  
+**¿Quieres extender el framework?** → [**Cómo crear un hand**](docs/guides/como-crear-un-hand.md)  
 Guía paso a paso: Python + XML + tests + schema, con plantilla lista para copiar.
 
 ---
@@ -1166,7 +1168,7 @@ integrations/web/       # specs de integración con producto web (opcional)
 
 **Funcional y listo para usarse.** El core está implementado y testeado: parser, runtime, sistema de records,
 expresiones, hands integrados de red, archivos, conversiones, control de flujo y exportación
-multi-formato. Podés armar pipelines reales hoy con los workflows en [`workflows/`](workflows/) y
+multi-formato. Puedes armar pipelines reales hoy con los workflows en [`workflows/`](workflows/) y
 [`examples/`](examples/).
 
 El framework sigue **abierto a crecer**: nuevas capacidades se suman como hands (registradas en el

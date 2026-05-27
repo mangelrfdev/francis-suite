@@ -32,6 +32,46 @@ mezclar resultados, deduplicarlos y persistirlos a Parquet para analítica sin e
 
 ---
 
+## Tests y cobertura
+
+El proyecto incluye **más de 150 tests** con `pytest`. Su objetivo es **asegurar que todo lo
+construido en Francis Suite se comporta como se documenta**: el parser que lee el XML, el runtime
+que ejecuta cada hand, el flujo de datos entre `box-def` y `box`, las expresiones `${...}`, el
+sistema de records (schema, validación, deduplicación, exportación), las llamadas HTTP, las
+conversiones de formato y la escritura atómica a disco.
+
+Cada suite ejecuta **workflows XML reales** — el mismo tipo de archivo que correrías con
+`francis-suite run` — y comprueba el resultado en cada capa: parser → runtime → hands → contexto
+→ artefactos en `output/`. También cubren los **caminos de error** (tags desconocidos, filas
+inválidas en un record, timeouts, límites de sesión y RAM) para que un fallo en producción no
+sea la primera vez que el motor ve ese caso.
+
+| Suite | Qué valida |
+|-------|------------|
+| [`test_pipeline.py`](tests/test_pipeline.py) | Pipeline completo: `httpx-call`, conversiones HTML/XML/JSON/CSV, `xpath-extract`, `loop`/`while`, `if`/`else`/`case`, funciones, `regex`, `compose`, `evaluate`, records (`record-create`, `record-add`, `record-save` con `clean-data`, `allow-nested`, `allow-prefix`), archivos, `try`/`catch`, `exit` |
+| [`test_expression_chain.py`](tests/test_expression_chain.py) | Motor de expresiones: aritmética, comparaciones, métodos encadenables (`toUpperCase`, `isEmpty`, `toInt`, …) |
+| [`test_httpx_auto_cookies.py`](tests/test_httpx_auto_cookies.py) | Cookie jar compartido entre `<httpx-call auto-cookies="true">` |
+| [`test_httpx_cookie_jar_close.py`](tests/test_httpx_cookie_jar_close.py) | Cierre de sesión HTTP y bloqueo hasta `set-proxy` |
+| [`test_httpx_introspect.py`](tests/test_httpx_introspect.py) | Inspección del último response (status, headers, cookies) |
+| [`test_set_proxy.py`](tests/test_set_proxy.py) | Configuración y rotación de proxies |
+| [`test_schema_gen.py`](tests/test_schema_gen.py) | Generación de XSD y manifiesto JSON del schema |
+| [`test_liveness.py`](tests/test_liveness.py) | Deadline de sesión, `session-pulse`, límites de RAM |
+| [`test_box_def_item.py`](tests/test_box_def_item.py) | Boxes en contextos de `loop` |
+
+Para correr toda la suite desde la raíz del repo:
+
+```bash
+uv sync --extra dev
+uv run pytest
+uv run pytest -x    # detener en el primer fallo
+```
+
+Los workflows de ejemplo en [`workflows/`](workflows/) y [`examples/`](examples/) complementan
+los tests como referencia ejecutable; la fuente de verdad del comportamiento del motor está en
+`tests/`.
+
+---
+
 ## Filosofía
 
 | Principio | Qué significa en la práctica |

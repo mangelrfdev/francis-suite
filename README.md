@@ -10,6 +10,9 @@
 > Core **funcional** y listo para usar en pipelines reales. Nuevas capacidades se suman como **hands**
 > sin reescribir el motor — ver [`docs/roadmap.md`](docs/roadmap.md).
 
+**¿Querés extender el framework?** → [**Cómo crear un hand**](docs/guides/como-crear-un-hand.md)  
+Guía paso a paso: Python + XML + tests + schema, con plantilla lista para copiar.
+
 ---
 
 ## ¿Qué es Francis Suite?
@@ -1148,6 +1151,7 @@ integrations/web/       # specs de integración con producto web (opcional)
 | Documento | Contenido |
 |-----------|-----------|
 | [`docs/README.md`](docs/README.md) | Índice general |
+| [`docs/guides/como-crear-un-hand.md`](docs/guides/como-crear-un-hand.md) | Cómo crear e integrar un hand nuevo (plantilla, tests, schema) |
 | [`docs/architecture.md`](docs/architecture.md) | Capas, FNode, hands, scoping, modelo mental |
 | [`docs/roadmap.md`](docs/roadmap.md) | Estado, próximos pasos, fuera de scope |
 | [`docs/guides/record-save.md`](docs/guides/record-save.md) | Exportación: formatos, metadata, `clean-data`, `allow-nested`, `allow-prefix` |

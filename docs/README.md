@@ -1,6 +1,6 @@
 # Documentación — Francis Suite
 
-> 🌐 **Español** (este índice) · README en inglés: [`../README.en.md`](../README.en.md) · Guía de hands en inglés: [`guides/how-to-create-a-hand.md`](guides/how-to-create-a-hand.md)
+> 🌐 **Español** (este índice) · README por defecto (inglés): [`../README.md`](../README.md) · README en español: [`../README.es.md`](../README.es.md) · Guía de hands en inglés: [`guides/how-to-create-a-hand.md`](guides/how-to-create-a-hand.md)
 
 Índice rápido (la fuente de verdad sigue siendo el código y los tests).
 
@@ -54,4 +54,4 @@ En tu copia de trabajo puedes tener p. ej. `docs/private/docker-oracle-ocir.md` 
 
 ## Ejemplos en el repo
 
-Ver `examples/README.md` y la tabla en el [README principal](../README.md#examples) (`examples/demos/`, `examples/corredoras/`).
+Ver `examples/README.md` y la tabla en el [README en español](../README.es.md) (`examples/demos/`, `examples/corredoras/`).
